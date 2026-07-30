@@ -182,8 +182,8 @@ export default function GameScreen() {
       y: ((Math.sin(i * 311.7 + 2.3) * 0.5 + 0.5)) * height,
       size: 1.2 + (i % 3) * 0.4,
       opacity: 0.4 + (i % 5) * 0.1,
-      delay: (i * 157) % 4000,
-      duration: 1500 + ((i * 263) % 2500),
+      delay: i * 237,
+      duration: 1800 + (i % 7) * 400,
     })),
   [smallStars]);
 
@@ -230,17 +230,6 @@ export default function GameScreen() {
             );
           })}
 
-          {currentConst.stars.map((star, i) => {
-            if (i < starsInCurrent) return null;
-            return (
-              <Circle
-                key={`locked-${i}`}
-                cx={star.x * svgW} cy={star.y * svgH}
-                r={1.5}
-                fill="rgba(255,255,255,0.07)"
-              />
-            );
-          })}
         </Svg>
 
         <View style={StyleSheet.absoluteFill}>

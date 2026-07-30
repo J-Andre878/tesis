@@ -5,7 +5,7 @@ import { getHabitIconName } from '../../constants/habits';
 import { useHabits } from '../../hooks/useHabits';
 
 export default function HabitsScreen() {
-  const { habits, loading, completeHabit, deleteHabit } = useHabits();
+  const { habits, loading, completeHabit, deleteHabit, isProcessing } = useHabits();
   const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
@@ -74,6 +74,7 @@ export default function HabitsScreen() {
                   <TouchableOpacity
                     style={[styles.checkButton, completedToday && styles.checkButtonDone]}
                     onPress={() => handleComplete(item)}
+                    disabled={isProcessing}
                   >
                     <Ionicons
                       name={completedToday ? 'checkmark-circle' : 'ellipse-outline'}

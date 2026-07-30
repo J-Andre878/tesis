@@ -6,7 +6,7 @@ import { useUser } from '../../hooks/useUser';
 
 export default function HomeScreen() {
   const { userData, loading: loadingUser } = useUser();
-  const { habits, loading: loadingHabits, completeHabit } = useHabits();
+  const { habits, loading: loadingHabits, completeHabit, isProcessing } = useHabits();
 
   const today = new Date().toISOString().split('T')[0];
   const todayHabits = habits.filter(h => h.frequency === 'daily' || true);
@@ -95,7 +95,7 @@ export default function HomeScreen() {
                 <Text style={styles.habitName}>{habit.name}</Text>
                 <Text style={styles.habitDays}>{habit.completedDates?.length || 0} días completados</Text>
               </View>
-              <TouchableOpacity onPress={() => handleComplete(habit)}>
+              <TouchableOpacity onPress={() => handleComplete(habit)} disabled={isProcessing}>
                 <Ionicons
                   name={completedToday ? 'checkmark-circle' : 'ellipse-outline'}
                   size={36}

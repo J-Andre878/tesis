@@ -1,6 +1,6 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { auth, db } from '../config/firebase';
 
 export interface Habit {
@@ -31,6 +31,7 @@ export function useHabits() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
 
   const fetchHabits = async () => {
     const user = auth.currentUser;
@@ -85,10 +86,11 @@ export function useHabits() {
     }
   };
   const completeHabit = async (habitId: string, currentStreak: number, currentCompletedDates: string[]) => {
-    if (isProcessing) {
+    if (processingRef.current) {
       return { alreadyDone: false, ignored: true };
     }
 
+    processingRef.current = true;
     setIsProcessing(true);
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -159,6 +161,7 @@ export function useHabits() {
       console.error(e);
       return { alreadyDone: false, xpEarned: 0 };
     } finally {
+      processingRef.current = false;
       setIsProcessing(false);
     }
   };
