@@ -43,10 +43,13 @@ export default function LoginScreen() {
     setLoading(true);
     setError('');
     try {
-      await sendPasswordResetEmail(auth, email);
-      Alert.alert('Revisa tu correo', 'Te enviamos un enlace para restablecer tu contraseña.');
+      await sendPasswordResetEmail(auth, email.trim());
+      Alert.alert('Correo enviado', `Si ${email.trim()} existe, revisa tu bandeja y spam.`);
     } catch (e: any) {
-      setError('No se pudo enviar el correo de recuperación');
+      const code = e?.code || 'unknown';
+      const msg = e?.message || 'No se pudo enviar el correo de recuperación';
+      console.error('Forgot password error:', code, msg);
+      setError(`Error: ${code}`);
     } finally {
       setLoading(false);
     }
