@@ -18,7 +18,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="habits"
         options={{
-          title: 'Hábitos',
+          title: 'Habitos',
           tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-circle" size={size} color={color} />,
         }}
       />

@@ -17,6 +17,7 @@ export interface Habit {
   createdAt: Date;
   streak: number;
   completedDates: string[];
+  consecutiveDays: number;
 }
 
 function getWeekMondayIso(date: Date) {
@@ -64,6 +65,7 @@ export function useHabits() {
         userId: user.uid,
         createdAt: new Date(),
         streak: 0,
+        consecutiveDays: 0,
         completedDates: [],
       });
       await fetchHabits();
@@ -94,58 +96,94 @@ export function useHabits() {
     setIsProcessing(true);
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const currentWeekMonday = getWeekMondayIso(now);
 
     try {
       if (currentCompletedDates.includes(today)) {
         return { alreadyDone: true };
       }
 
+      const habit = habits.find(h => h.id === habitId);
+      if (!habit) return { alreadyDone: false, xpEarned: 0 };
+
       const habitRef = doc(db, 'habits', habitId);
       const newCompletedDates = [...currentCompletedDates, today];
 
-      // Verificar si completó su meta semanal
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-      });
+      let consecutiveDays = habit.consecutiveDays || 0;
+      let streakBroken = false;
 
-      const habit = habits.find(h => h.id === habitId);
-      const targetDays = habit?.frequency === 'daily' ? 7 : (habit?.weeklyDays || 3);
-      const completedThisWeek = newCompletedDates.filter(d => last7Days.includes(d)).length;
-      const completedWeeklyGoal = completedThisWeek >= targetDays;
+      if (consecutiveDays > 0) {
+        const lastCompleted = currentCompletedDates[currentCompletedDates.length - 1];
+        const lastDate = new Date(lastCompleted);
+        const diffTime = now.getTime() - lastDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (habit.frequency === 'daily') {
+          if (diffDays > 1) streakBroken = true;
+        } else {
+          if (diffDays > 7) streakBroken = true;
+        }
+      }
+
+      if (streakBroken) {
+        consecutiveDays = 0;
+      }
+
+      consecutiveDays += 1;
+
+      let gotConstellationStar = false;
+      if (consecutiveDays >= 7) {
+        gotConstellationStar = true;
+        consecutiveDays = 0;
+      }
+
+      const newStreak = streakBroken ? 1 : currentStreak + 1;
 
       await updateDoc(habitRef, {
         completedDates: newCompletedDates,
-        streak: currentStreak + 1,
+        streak: newStreak,
+        consecutiveDays,
       });
 
       const user = auth.currentUser;
-      let gotConstellationStar = false;
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
-        const userData = userSnap.data() as { lastConstellationStarDate?: string } | undefined;
-        const lastConstellationStarDate = userData?.lastConstellationStarDate;
-        const alreadyAwardedThisWeek = Boolean(
-          lastConstellationStarDate && lastConstellationStarDate >= currentWeekMonday
-        );
-        gotConstellationStar = completedWeeklyGoal && !alreadyAwardedThisWeek;
+        const userData = userSnap.data() as { constellationStars?: number; currentConstellation?: number; completedConstellations?: any[]; smallStars?: number } | undefined;
 
         const userUpdates: {
           xp: ReturnType<typeof increment>;
           smallStars: ReturnType<typeof increment>;
           constellationStars?: ReturnType<typeof increment>;
           lastConstellationStarDate?: string;
+          currentConstellation?: number;
+          lastCompletedDate?: string;
+          completedConstellations?: any[];
         } = {
           xp: increment(10),
           smallStars: increment(1),
+          lastCompletedDate: today,
         };
 
         if (gotConstellationStar) {
           userUpdates.constellationStars = increment(1);
           userUpdates.lastConstellationStarDate = today;
+
+          const currentConstellation = userData?.currentConstellation || 0;
+          const newTotalStars = (userData?.constellationStars || 0) + 1;
+          const starsInCurrent = newTotalStars % 7;
+
+          if (starsInCurrent === 0) {
+            userUpdates.currentConstellation = currentConstellation + 1;
+
+            const completed = userData?.completedConstellations || [];
+            const snapshot = {
+              constellationIndex: currentConstellation,
+              stars: STARS_PER_CONSTELLATION,
+              smallStars: userData?.smallStars || 0,
+              date: today,
+            };
+            userUpdates.completedConstellations = [...completed, snapshot];
+          }
         }
 
         await updateDoc(userRef, userUpdates);

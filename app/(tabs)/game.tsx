@@ -1,8 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { useUser } from '../../hooks/useUser';
+import { useHabits } from '../../hooks/useHabits';
+import { auth, db } from '../../config/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -160,19 +163,61 @@ function PulsingConstellationStar({ x, y, index }: any) {
 
 export default function GameScreen() {
   const { userData } = useUser();
+  const { habits } = useHabits();
   const [fullscreen, setFullscreen] = useState(false);
+  const [view, setView] = useState<'sky' | 'leaderboard'>('sky');
+  const [leaderboard, setLeaderboard] = useState<{ id: string; userName: string; userLevel: number; score: number }[]>([]);
+  const [galaxyView, setGalaxyView] = useState(false);
+  const [expandedConstellation, setExpandedConstellation] = useState<number | null>(null);
+
+  const currentConstellationIndex = userData?.currentConstellation ?? 0;
+  const userSubcategory = useMemo(() => habits.find(h => h.subcategory)?.subcategory || '', [habits]);
+
+  const weekStart = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  useEffect(() => {
+    if (view !== 'leaderboard') return;
+
+    const q = query(
+      collection(db, 'weeklyScores'),
+      where('weekStart', '==', weekStart)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const all: { id: string; userName: string; userLevel: number; score: number; subcategory?: string }[] = [];
+      snap.forEach((docSnap) => {
+        const d = docSnap.data() as { userName?: string; userLevel?: number; score?: number; subcategory?: string };
+        if (typeof d.userName === 'string' && typeof d.score === 'number') {
+          all.push({ id: docSnap.id, userName: d.userName, userLevel: d.userLevel || 1, score: d.score, subcategory: d.subcategory });
+        }
+      });
+
+      const filtered = userSubcategory
+        ? all.filter(item => item.subcategory === userSubcategory)
+        : [];
+      filtered.sort((a, b) => b.score - a.score);
+      setLeaderboard(filtered.slice(0, 50));
+    }, (error) => {
+      console.error('Error loading leaderboard:', error);
+    });
+
+    return unsub;
+  }, [view, userSubcategory, weekStart]);
 
   const constellationStars = userData?.constellationStars || 0;
   const smallStars = userData?.smallStars || 0;
 
-  let constIndex = 0;
-  let starsInCurrent = constellationStars;
-  while (constIndex < CONSTELLATIONS.length - 1 && starsInCurrent >= STARS_PER_CONSTELLATION) {
-    starsInCurrent -= STARS_PER_CONSTELLATION;
-    constIndex++;
-  }
+  let starsInCurrent = constellationStars - (currentConstellationIndex * STARS_PER_CONSTELLATION);
+  if (starsInCurrent < 0) starsInCurrent = 0;
+  if (starsInCurrent > STARS_PER_CONSTELLATION) starsInCurrent = STARS_PER_CONSTELLATION;
 
-  const currentConst = CONSTELLATIONS[constIndex];
+  const currentConst = CONSTELLATIONS[Math.min(currentConstellationIndex, CONSTELLATIONS.length - 1)];
   const svgW = width * 0.88;
   const svgH = height * 0.38;
 
@@ -190,94 +235,300 @@ export default function GameScreen() {
   const starsNeeded = STARS_PER_CONSTELLATION - starsInCurrent;
   const progressPercent = (starsInCurrent / STARS_PER_CONSTELLATION) * 100;
 
+  const completedConstellations = userData?.completedConstellations || [];
+
+  const isConstellationCompleted = (index: number) => {
+    return completedConstellations.some(c => c.constellationIndex === index);
+  };
+
+  const getConstellationProgress = (index: number) => {
+    if (index < currentConstellationIndex) return STARS_PER_CONSTELLATION;
+    if (index === currentConstellationIndex) return starsInCurrent;
+    return 0;
+  };
+
+  const handleGalaxyBack = () => {
+    setGalaxyView(false);
+    setExpandedConstellation(null);
+  };
+
+  const handleExpandConstellation = (index: number) => {
+    setExpandedConstellation(index);
+  };
+
+  const handleExpandBack = () => {
+    setExpandedConstellation(null);
+  };
+
+  const renderConstellationMiniature = (constellation: typeof CONSTELLATIONS[0], index: number) => {
+    const isCompleted = isConstellationCompleted(index);
+    const isCurrent = index === currentConstellationIndex;
+    const progress = getConstellationProgress(index);
+
+    return (
+      <TouchableOpacity
+        key={index}
+        style={styles.miniatureCard}
+        onPress={() => {
+          if (isCompleted) {
+            handleExpandConstellation(index);
+          }
+        }}
+        disabled={!isCompleted}
+      >
+        <View style={[styles.miniatureGlow, isCompleted && styles.miniatureGlowActive]} />
+        <View style={styles.miniatureContent}>
+          <Svg width={60} height={60}>
+            {constellation.lines.map(([a, b], i) => {
+              if (a >= progress || b >= progress) return null;
+              const sA = constellation.stars[a];
+              const sB = constellation.stars[b];
+              return (
+                <Line
+                  key={i}
+                  x1={sA.x * 60} y1={sA.y * 60}
+                  x2={sB.x * 60} y2={sB.y * 60}
+                  stroke={isCompleted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.1)"}
+                  strokeWidth="1"
+                />
+              );
+            })}
+          </Svg>
+          <View style={StyleSheet.absoluteFill}>
+            {constellation.stars.map((star, i) => {
+              if (i >= progress) return null;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.miniatureDot,
+                    isCompleted && styles.miniatureDotCompleted,
+                    isCurrent && styles.miniatureDotCurrent,
+                  ]}
+                />
+              );
+            })}
+          </View>
+        </View>
+        <Text style={[styles.miniatureName, isCompleted && styles.miniatureNameActive]}>
+          {constellation.name}
+        </Text>
+        {isCurrent && !isCompleted && (
+          <Text style={styles.miniatureProgress}>{progress}/{STARS_PER_CONSTELLATION}</Text>
+        )}
+        {isCompleted && (
+          <Text style={styles.miniatureCompleted}>Completada</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={currentConst.colors} style={StyleSheet.absoluteFill} />
+      {expandedConstellation !== null ? (
+        <TouchableOpacity activeOpacity={1} onPress={handleExpandBack}>
+          <LinearGradient colors={CONSTELLATIONS[expandedConstellation].colors} style={StyleSheet.absoluteFill} />
+          {renderExpandedConstellation(expandedConstellation)}
+        </TouchableOpacity>
+      ) : galaxyView ? (
+        <>
+          <LinearGradient colors={['#000000', '#0a0a1a', '#000000']} style={StyleSheet.absoluteFill} />
+          <View style={styles.galaxyHeader}>
+            <Text style={styles.galaxyTitle}>Mi Galaxia</Text>
+            <TouchableOpacity onPress={handleGalaxyBack}>
+              <Text style={styles.galaxyClose}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.galaxyContent}>
+            {CONSTELLATIONS.map((constellation, index) => renderConstellationMiniature(constellation, index))}
+          </ScrollView>
+        </>
+      ) : view === 'sky' ? (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={fullscreen ? () => setFullscreen(false) : undefined}
+          style={styles.skyContainer}
+        >
+          <LinearGradient colors={currentConst.colors} style={StyleSheet.absoluteFill} />
 
-      {/* Estrellas pequeñas ganadas */}
-      {smallStars > 0 && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {smallStarPositions.map((star, i) => (
-            <AnimatedStarShape key={i} {...star} />
-          ))}
-        </View>
-      )}
+          {/* Estrellas pequeñas ganadas */}
+          {smallStars > 0 && (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {smallStarPositions.map((star, i) => (
+                <AnimatedStarShape key={i} {...star} />
+              ))}
+            </View>
+          )}
 
-      {!fullscreen && (
-        <View style={styles.content}>
-          <Text style={styles.title}>Tu Cielo</Text>
-          <Text style={styles.subtitle}>
-            {starsInCurrent} / {STARS_PER_CONSTELLATION} estrellas · {currentConst.name}
-          </Text>
-        </View>
-      )}
+          {!fullscreen && (
+            <View style={styles.content}>
+              <Text style={styles.title}>Tu Cielo</Text>
+              <Text style={styles.subtitle}>
+                {starsInCurrent} / {STARS_PER_CONSTELLATION} estrellas · {currentConst.name}
+              </Text>
+              <View style={styles.viewToggle}>
+                <TouchableOpacity
+                  style={[styles.viewToggleBtn, view === 'sky' && styles.viewToggleBtnActive]}
+                  onPress={() => setView('sky')}
+                >
+                  <Text style={[styles.viewToggleText, view === 'sky' && styles.viewToggleTextActive]}>Mi Cielo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.viewToggleBtn, view === 'leaderboard' && styles.viewToggleBtnActive]}
+                  onPress={() => setView('leaderboard')}
+                >
+                  <Text style={[styles.viewToggleText, view === 'leaderboard' && styles.viewToggleTextActive]}>Tabla de Líderes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
-      {/* Constelación centrada */}
-      <View style={[styles.constellationWrapper, fullscreen && styles.constellationWrapperFull]}>
-        <Svg width={svgW} height={svgH}>
-          {currentConst.lines.map(([a, b], i) => {
-            if (a >= starsInCurrent || b >= starsInCurrent) return null;
-            const sA = currentConst.stars[a];
-            const sB = currentConst.stars[b];
-            return (
-              <Line
-                key={i}
-                x1={sA.x * svgW} y1={sA.y * svgH}
-                x2={sB.x * svgW} y2={sB.y * svgH}
-                stroke="rgba(255,255,255,0.25)"
-                strokeWidth="1"
-              />
-            );
-          })}
+          <View style={[styles.constellationWrapper, fullscreen && styles.constellationWrapperFull]}>
+            <Svg width={svgW} height={svgH}>
+              {currentConst.lines.map(([a, b], i) => {
+                if (a >= starsInCurrent || b >= starsInCurrent) return null;
+                const sA = currentConst.stars[a];
+                const sB = currentConst.stars[b];
+                return (
+                  <Line
+                    key={i}
+                    x1={sA.x * svgW} y1={sA.y * svgH}
+                    x2={sB.x * svgW} y2={sB.y * svgH}
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth="1"
+                  />
+                );
+              })}
+            </Svg>
 
-        </Svg>
+            <View style={StyleSheet.absoluteFill}>
+              {currentConst.stars.map((star, i) => {
+                if (i >= starsInCurrent) return null;
+                return (
+                  <PulsingConstellationStar
+                    key={`pulse-${i}`}
+                    x={star.x * svgW}
+                    y={star.y * svgH}
+                    index={i}
+                  />
+                );
+              })}
+            </View>
+          </View>
 
-        <View style={StyleSheet.absoluteFill}>
-          {currentConst.stars.map((star, i) => {
-            if (i >= starsInCurrent) return null;
-            return (
-              <PulsingConstellationStar
-                key={`pulse-${i}`}
-                x={star.x * svgW}
-                y={star.y * svgH}
-                index={i}
-              />
-            );
-          })}
-        </View>
-      </View>
+          {!fullscreen && (
+            <View style={styles.infoContainer}>
+              {starsInCurrent >= STARS_PER_CONSTELLATION ? (
+                <Text style={styles.completeText}>Constelacion completada</Text>
+              ) : (
+                <>
+                  <Text style={styles.nextStarText}>
+                    Faltan <Text style={styles.highlight}>{starsNeeded} semanas perfectas</Text> para completar esta constelación
+                  </Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                  </View>
+                </>
+              )}
+              <Text style={styles.smallStarsText}>{smallStars} estrellas de constancia diaria</Text>
+            </View>
+          )}
 
-      {!fullscreen && (
-        <View style={styles.infoContainer}>
-          {starsInCurrent >= STARS_PER_CONSTELLATION ? (
-            <Text style={styles.completeText}>¡Constelación completada! 🌌</Text>
+          {!fullscreen && (
+            <View style={styles.rightButtons}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setGalaxyView(true)}
+              >
+                <Text style={styles.iconButtonText}>✦</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setFullscreen(true)}
+              >
+                <Text style={styles.iconButtonText}>⛶</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.leaderboardContainer}>
+          {!userSubcategory ? (
+            <Text style={styles.leaderboardEmpty}>Agrega una subcategoria a algun habito para participar en el ranking</Text>
           ) : (
             <>
-              <Text style={styles.nextStarText}>
-                Faltan <Text style={styles.highlight}>{starsNeeded} semanas perfectas</Text> para completar esta constelación
-              </Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-              </View>
+              <Text style={styles.leaderboardTitle}>Ranking Semanal - {userSubcategory}</Text>
+              <FlatList
+                data={leaderboard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.leaderboardList}
+                renderItem={({ item, index }) => {
+                  const isCurrentUser = auth.currentUser?.uid === item.id;
+                  const rankTitle = item.score >= 0.9 ? 'Perfecto' : item.score >= 0.6 ? 'Constante' : item.score >= 0.3 ? 'En marcha' : 'Recomenzando';
+                  return (
+                    <View style={[styles.leaderboardItem, isCurrentUser && styles.leaderboardItemActive]}>
+                      <Text style={[styles.leaderboardRank, isCurrentUser && styles.leaderboardRankActive]}>{index + 1}</Text>
+                      <View style={styles.leaderboardUserInfo}>
+                        <Text style={[styles.leaderboardName, isCurrentUser && styles.leaderboardNameActive]}>{item.userName}</Text>
+                        <Text style={styles.leaderboardLevel}>Nivel {item.userLevel}</Text>
+                      </View>
+                      <View style={styles.leaderboardScoreInfo}>
+                        <Text style={[styles.leaderboardScore, isCurrentUser && styles.leaderboardScoreActive]}>{item.score.toFixed(2)}</Text>
+                        <Text style={[styles.leaderboardTitleText, isCurrentUser && styles.leaderboardTitleTextActive]}>{rankTitle}</Text>
+                      </View>
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={styles.leaderboardEmpty}>No hay datos disponibles</Text>
+                }
+              />
             </>
           )}
-          <Text style={styles.smallStarsText}>⭐ {smallStars} estrellas de constancia diaria</Text>
         </View>
       )}
-
-      {/* Botón fullscreen */}
-      <TouchableOpacity
-        style={styles.fullscreenBtn}
-        onPress={() => setFullscreen(!fullscreen)}
-      >
-        <Text style={styles.fullscreenIcon}>{fullscreen ? '✕' : '⛶'}</Text>
-      </TouchableOpacity>
     </View>
+  );
+}
+
+function renderExpandedConstellation(index: number) {
+  const constellation = CONSTELLATIONS[index];
+  return (
+    <TouchableOpacity style={styles.expandedContainer} onPress={handleExpandBack} activeOpacity={1}>
+      <LinearGradient colors={constellation.colors} style={StyleSheet.absoluteFill} />
+      <Svg width={svgW} height={svgH}>
+        {constellation.lines.map(([a, b], i) => {
+          const sA = constellation.stars[a];
+          const sB = constellation.stars[b];
+          return (
+            <Line
+              key={i}
+              x1={sA.x * svgW} y1={sA.y * svgH}
+              x2={sB.x * svgW} y2={sB.y * svgH}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth="1"
+            />
+          );
+        })}
+      </Svg>
+
+      <View style={StyleSheet.absoluteFill}>
+        {constellation.stars.map((star, i) => (
+          <PulsingConstellationStar
+            key={`expanded-pulse-${i}`}
+            x={star.x * svgW}
+            y={star.y * svgH}
+            index={i}
+          />
+        ))}
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  skyContainer: { flex: 1 },
   content: { alignItems: 'center', paddingTop: 65 },
   title: { fontSize: 24, fontWeight: 'bold', color: '#fff', letterSpacing: 3 },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
@@ -291,6 +542,45 @@ const styles = StyleSheet.create({
   progressFill: { height: 3, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 2 },
   smallStarsText: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
   completeText: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  fullscreenBtn: { position: 'absolute', top: 55, right: 20, padding: 8 },
-  fullscreenIcon: { fontSize: 22, color: 'rgba(255,255,255,0.5)' },
+  rightButtons: { position: 'absolute', top: 55, right: 20, flexDirection: 'row', gap: 12 },
+  iconButton: { padding: 8 },
+  iconButtonText: { fontSize: 22, color: 'rgba(255,255,255,0.5)' },
+  viewToggle: { flexDirection: 'row', marginTop: 18, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 4 },
+  viewToggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  viewToggleBtnActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  viewToggleText: { color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: '600' },
+  viewToggleTextActive: { color: '#fff' },
+  leaderboardContainer: { position: 'absolute', top: height * 0.22, left: 0, right: 0, bottom: 60 },
+  leaderboardTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  leaderboardList: { paddingHorizontal: 24, paddingBottom: 20 },
+  leaderboardItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 8 },
+  leaderboardItemActive: { backgroundColor: 'rgba(108,99,255,0.25)' },
+  leaderboardRank: { width: 32, fontSize: 16, fontWeight: 'bold', color: 'rgba(255,255,255,0.7)' },
+  leaderboardRankActive: { color: '#fff' },
+  leaderboardUserInfo: { flex: 1, marginLeft: 12 },
+  leaderboardName: { fontSize: 15, color: 'rgba(255,255,255,0.85)', marginLeft: 0 },
+  leaderboardNameActive: { color: '#fff', fontWeight: 'bold' },
+  leaderboardLevel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+  leaderboardScoreInfo: { alignItems: 'flex-end' },
+  leaderboardScore: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginLeft: 8 },
+  leaderboardScoreActive: { color: '#fff', fontWeight: 'bold' },
+  leaderboardTitleText: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+  leaderboardTitleTextActive: { color: '#fff' },
+  leaderboardEmpty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', marginTop: 40, fontSize: 14 },
+  galaxyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60 },
+  galaxyTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', letterSpacing: 3 },
+  galaxyClose: { fontSize: 16, color: 'rgba(255,255,255,0.7)' },
+  galaxyContent: { paddingHorizontal: 24, paddingBottom: 40, alignItems: 'center' },
+  miniatureCard: { width: width * 0.4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  miniatureGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, opacity: 0 },
+  miniatureGlowActive: { opacity: 1, backgroundColor: 'rgba(108,99,255,0.15)' },
+  miniatureContent: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
+  miniatureDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.3)', position: 'absolute' },
+  miniatureDotCompleted: { backgroundColor: '#fff' },
+  miniatureDotCurrent: { backgroundColor: 'rgba(255,255,255,0.8)' },
+  miniatureName: { fontSize: 14, fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', marginTop: 10, textAlign: 'center' },
+  miniatureNameActive: { color: '#fff' },
+  miniatureProgress: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+  miniatureCompleted: { fontSize: 11, color: '#6C63FF', marginTop: 4, fontWeight: 'bold' },
+  expandedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

@@ -32,6 +32,8 @@ export default function RegisterScreen() {
         photoURL: null,
         xp: 0,
         level: 1,
+        currentConstellation: 0,
+        lastCompletedDate: null,
         createdAt: new Date(),
       });
     } catch (e: any) {

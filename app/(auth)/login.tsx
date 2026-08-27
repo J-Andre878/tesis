@@ -21,13 +21,14 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (e: any) {
-      console.error('Login error:', e);
-      if (e?.code === 'auth/network-request-failed') {
-        setError('Error de red. Verifica tu conexión a internet e intenta de nuevo.');
-      } else if (e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password' || e?.code === 'auth/user-not-found') {
+      if (e?.code === 'auth/invalid-credential') {
         setError('Correo o contraseña incorrectos');
+      } else if (e?.code === 'auth/network-request-failed') {
+        setError('Error de red. Verifica tu conexion.');
+      } else if (e?.code === 'auth/too-many-requests') {
+        setError('Demasiados intentos. Intenta mas tarde.');
       } else {
-        setError('No se pudo iniciar sesión. Intenta de nuevo en unos segundos.');
+        setError('No se pudo iniciar sesion. Intenta de nuevo.');
       }
     } finally {
       setLoading(false);

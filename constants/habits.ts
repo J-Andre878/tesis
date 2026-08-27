@@ -62,10 +62,9 @@ export function getHabitIconName(habit: { icon?: string; category?: string }) {
 }
 
 export const GOAL_OPTIONS = [
-  { label: '7 días', value: 7 },
-  { label: '21 días', value: 21 },
-  { label: '66 días', value: 66 },
-  { label: '90 días', value: 90 },
+  { label: '1 semana', value: 7 },
+  { label: '1 mes', value: 30 },
+  { label: '3 meses', value: 90 },
 ];
 
 export const FREQUENCY_OPTIONS = [
