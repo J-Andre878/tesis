@@ -13,7 +13,7 @@ export interface UserData {
   xp: number;
   level: number;
   photoURL: string | null;
-  smallStars: number;
+  smallStars: number[];
   constellationStars: number;
   currentConstellation: number;
   lastCompletedDate?: string;
@@ -27,6 +27,24 @@ export interface UserData {
 
 function computeCurrentConstellation(constellationStars: number): number {
   return Math.floor(constellationStars / STARS_PER_CONSTELLATION);
+}
+
+function computeCompletedConstellations(constellationStars: number, currentConstellation: number, existing: any[]): any[] {
+  const completed: any[] = [];
+  for (let i = 0; i < currentConstellation; i++) {
+    const existingEntry = existing.find(e => e.constellationIndex === i);
+    if (existingEntry) {
+      completed.push(existingEntry);
+    } else {
+      completed.push({
+        constellationIndex: i,
+        stars: STARS_PER_CONSTELLATION,
+        smallStars: 0,
+        date: new Date().toISOString().split('T')[0],
+      });
+    }
+  }
+  return completed;
 }
 
 export function useUser() {
@@ -57,11 +75,21 @@ export function useUser() {
           if (snap.exists()) {
             const data = snap.data() as UserData & { currentConstellation?: number; lastCompletedDate?: string; completedConstellations?: any[] };
             const currentConstellation = data.currentConstellation ?? computeCurrentConstellation(data.constellationStars || 0);
+            const completedConstellations = computeCompletedConstellations(data.constellationStars || 0, currentConstellation, data.completedConstellations || []);
+            const needsUpdate = !('constellationStars' in (data as any)) || !('currentConstellation' in (data as any));
+            if (needsUpdate) {
+              const updates: any = {};
+              if (!('constellationStars' in (data as any))) updates.constellationStars = 0;
+              if (!('currentConstellation' in (data as any))) updates.currentConstellation = 0;
+              updateDoc(doc(db, 'users', user.uid), updates).catch(console.error);
+            }
+
             setUserData({
               ...data,
               constellationStars: data.constellationStars || 0,
               currentConstellation,
-              completedConstellations: data.completedConstellations || [],
+              smallStars: Array.isArray(data.smallStars) ? data.smallStars : [],
+              completedConstellations,
             });
             setLoading(false);
           } else {
@@ -101,17 +129,23 @@ export function useUser() {
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays > 0) {
-        const currentSmallStars = userData.smallStars || 0;
+        const currentConstellation = userData.currentConstellation || 0;
+        const currentSmallStars = userData.smallStars?.[currentConstellation] || 0;
         const newSmallStars = Math.max(0, currentSmallStars - diffDays);
         const today = now.toISOString().split('T')[0];
 
         try {
           const userRef = doc(db, 'users', user.uid);
+          const newSmallStarsArray = Array.isArray(userData.smallStars) ? [...userData.smallStars] : [];
+          while (newSmallStarsArray.length <= currentConstellation) {
+            newSmallStarsArray.push(0);
+          }
+          newSmallStarsArray[currentConstellation] = newSmallStars;
           await updateDoc(userRef, {
-            smallStars: newSmallStars,
+            smallStars: newSmallStarsArray,
             lastCompletedDate: today,
           });
-          setUserData(prev => prev ? { ...prev, smallStars: newSmallStars, lastCompletedDate: today } : null);
+          setUserData(prev => prev ? { ...prev, smallStars: newSmallStarsArray, lastCompletedDate: today } : null);
         } catch (e) {
           console.error('Error applying small stars decay:', e);
         }

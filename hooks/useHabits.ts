@@ -87,6 +87,19 @@ export function useHabits() {
       return false;
     }
   };
+
+  const updateHabit = async (habitId: string, data: Partial<Habit>) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const habitRef = doc(db, 'habits', habitId);
+      await updateDoc(habitRef, data);
+      await fetchHabits();
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const completeHabit = async (habitId: string, currentStreak: number, currentCompletedDates: string[]) => {
     if (processingRef.current) {
       return { alreadyDone: false, ignored: true };
@@ -148,11 +161,21 @@ export function useHabits() {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
-        const userData = userSnap.data() as { constellationStars?: number; currentConstellation?: number; completedConstellations?: any[]; smallStars?: number } | undefined;
+        const userData = userSnap.data() as { constellationStars?: number; currentConstellation?: number; completedConstellations?: any[]; smallStars?: number[] } | undefined;
+
+        const currentConstellation = userData?.currentConstellation || 0;
+        const currentSmallStars = Array.isArray(userData?.smallStars) ? userData.smallStars : [];
+        const newSmallStars = currentSmallStars.map((v: any, i: number) =>
+          i === currentConstellation ? (v || 0) + 1 : (v || 0)
+        );
+        while (newSmallStars.length <= currentConstellation) {
+          newSmallStars.push(0);
+        }
+        newSmallStars[currentConstellation] = (newSmallStars[currentConstellation] || 0) + 1;
 
         const userUpdates: {
           xp: ReturnType<typeof increment>;
-          smallStars: ReturnType<typeof increment>;
+          smallStars: number[];
           constellationStars?: ReturnType<typeof increment>;
           lastConstellationStarDate?: string;
           currentConstellation?: number;
@@ -160,7 +183,7 @@ export function useHabits() {
           completedConstellations?: any[];
         } = {
           xp: increment(10),
-          smallStars: increment(1),
+          smallStars: newSmallStars,
           lastCompletedDate: today,
         };
 
@@ -168,7 +191,6 @@ export function useHabits() {
           userUpdates.constellationStars = increment(1);
           userUpdates.lastConstellationStarDate = today;
 
-          const currentConstellation = userData?.currentConstellation || 0;
           const newTotalStars = (userData?.constellationStars || 0) + 1;
           const starsInCurrent = newTotalStars % 7;
 
@@ -179,7 +201,7 @@ export function useHabits() {
             const snapshot = {
               constellationIndex: currentConstellation,
               stars: STARS_PER_CONSTELLATION,
-              smallStars: userData?.smallStars || 0,
+              smallStars: newSmallStars[currentConstellation] || 0,
               date: today,
             };
             userUpdates.completedConstellations = [...completed, snapshot];

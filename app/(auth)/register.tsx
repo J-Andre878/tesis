@@ -47,7 +47,7 @@ export default function RegisterScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>HabitQuest</Text>
+      <Text style={styles.title}>Habit Galaxy</Text>
       <Text style={styles.subtitle}>Crea tu cuenta</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

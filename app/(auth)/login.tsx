@@ -58,8 +58,8 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>HabitQuest</Text>
-      <Text style={styles.subtitle}>Inicia sesión</Text>
+      <Text style={styles.title}>Habit Galaxy</Text>
+      <Text style={styles.subtitle}>Inicia sesion</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

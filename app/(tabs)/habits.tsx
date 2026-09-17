@@ -70,22 +70,25 @@ export default function HabitsScreen() {
                   <Text style={styles.habitCategory}>{item.category}</Text>
                   <Text style={styles.habitDays}>{item.completedDates?.length || 0} días completados</Text>
                 </View>
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={[styles.checkButton, completedToday && styles.checkButtonDone]}
-                    onPress={() => handleComplete(item)}
-                    disabled={isProcessing}
-                  >
-                    <Ionicons
-                      name={completedToday ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={36}
-                      color={completedToday ? '#6C63FF' : '#ccc'}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item)}>
-                    <Ionicons name="trash-outline" size={22} color="#D63031" />
-                  </TouchableOpacity>
-                </View>
+                 <View style={styles.actions}>
+                   <TouchableOpacity
+                     style={[styles.checkButton, completedToday && styles.checkButtonDone]}
+                     onPress={() => handleComplete(item)}
+                     disabled={isProcessing}
+                   >
+                     <Ionicons
+                       name={completedToday ? 'checkmark-circle' : 'ellipse-outline'}
+                       size={36}
+                       color={completedToday ? '#6C63FF' : '#ccc'}
+                     />
+                   </TouchableOpacity>
+                   <TouchableOpacity style={styles.editButton} onPress={() => router.push({ pathname: '/edit-habit', params: { id: item.id } })}>
+                     <Ionicons name="pencil-outline" size={22} color="#6C63FF" />
+                   </TouchableOpacity>
+                   <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item)}>
+                     <Ionicons name="trash-outline" size={22} color="#D63031" />
+                   </TouchableOpacity>
+                 </View>
               </View>
             );
           }}
@@ -113,5 +116,6 @@ const styles = StyleSheet.create({
   actions: { alignItems: 'center', gap: 8 },
   checkButton: { padding: 4 },
   checkButtonDone: { opacity: 0.8 },
+  editButton: { padding: 6 },
   deleteButton: { padding: 6 },
 });
