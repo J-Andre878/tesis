@@ -12,7 +12,6 @@ export default function CreateHabitScreen() {
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [weeklyDays, setWeeklyDays] = useState(3);
   const [goal, setGoal] = useState(21);
@@ -24,7 +23,6 @@ export default function CreateHabitScreen() {
     await addHabit({
       name,
       category: selectedCategory.name,
-      subcategory: selectedSubcategory || undefined,
       frequency,
       weeklyDays: frequency === 'weekly' ? weeklyDays : undefined,
       goal,
@@ -65,30 +63,13 @@ export default function CreateHabitScreen() {
                 <TouchableOpacity
                   key={cat.id}
                   style={[styles.categoryCard, selectedCategory?.id === cat.id && { borderColor: cat.color, borderWidth: 2 }]}
-                  onPress={() => { setSelectedCategory(cat); setSelectedSubcategory(''); }}
+                  onPress={() => setSelectedCategory(cat)}
                 >
                   <Ionicons name={cat.iconName as any} size={30} color={cat.color} />
                   <Text style={styles.categoryName}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-
-            {selectedCategory && selectedCategory.subcategories.length > 0 && (
-              <>
-                <Text style={styles.question}>Subcategoría <Text style={styles.optional}>(opcional)</Text></Text>
-                <View style={styles.subcategoryContainer}>
-                  {selectedCategory.subcategories.map((sub: string) => (
-                    <TouchableOpacity
-                      key={sub}
-                      style={[styles.subButton, selectedSubcategory === sub && { backgroundColor: selectedCategory.color }]}
-                      onPress={() => setSelectedSubcategory(selectedSubcategory === sub ? '' : sub)}
-                    >
-                      <Text style={[styles.subText, selectedSubcategory === sub && { color: '#fff' }]}>{sub}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
 
             <TouchableOpacity
               style={[styles.nextButton, (!name || !selectedCategory) && styles.disabled]}
@@ -162,14 +143,10 @@ const styles = StyleSheet.create({
   progressFill: { height: 4, backgroundColor: '#6C63FF', borderRadius: 2 },
   content: { padding: 24, paddingBottom: 60 },
   question: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 16, marginTop: 8 },
-  optional: { fontSize: 14, fontWeight: 'normal', color: '#999' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   categoryCard: { width: '47%', backgroundColor: '#f8f8f8', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   categoryName: { fontSize: 12, textAlign: 'center', color: '#333', fontWeight: '500' },
-  subcategoryContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-  subButton: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  subText: { fontSize: 14, color: '#333' },
   nextButton: { backgroundColor: '#6C63FF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   nextText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   disabled: { backgroundColor: '#ccc' },

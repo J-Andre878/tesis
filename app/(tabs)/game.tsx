@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { useUser } from '../../hooks/useUser';
@@ -171,7 +171,7 @@ export default function GameScreen() {
   const [visitedConstellation, setVisitedConstellation] = useState<number | null>(null);
 
   const currentConstellationIndex = userData?.currentConstellation ?? 0;
-  const userSubcategory = useMemo(() => habits.find(h => h.subcategory)?.subcategory || '', [habits]);
+  const userCategory = useMemo(() => habits.find(h => h.category)?.category || '', [habits]);
 
   const weekStart = useMemo(() => {
     const d = new Date();
@@ -190,17 +190,17 @@ export default function GameScreen() {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const all: { id: string; userName: string; userLevel: number; score: number; subcategory?: string }[] = [];
+      const all: { id: string; userName: string; userLevel: number; score: number; category?: string }[] = [];
       snap.forEach((docSnap) => {
-        const d = docSnap.data() as { userName?: string; userLevel?: number; score?: number; subcategory?: string };
+        const d = docSnap.data() as { userName?: string; userLevel?: number; score?: number; category?: string };
         if (typeof d.userName === 'string' && typeof d.score === 'number') {
-          all.push({ id: docSnap.id, userName: d.userName, userLevel: d.userLevel || 1, score: d.score, subcategory: d.subcategory });
+          all.push({ id: docSnap.id, userName: d.userName, userLevel: d.userLevel || 1, score: d.score, category: d.category });
         }
       });
 
-      const filtered = userSubcategory
-        ? all.filter(item => item.subcategory === userSubcategory)
-        : [];
+      const filtered = userCategory
+        ? all.filter(item => item.category === userCategory)
+        : all;
       filtered.sort((a, b) => b.score - a.score);
       setLeaderboard(filtered.slice(0, 50));
     }, (error) => {
@@ -208,7 +208,7 @@ export default function GameScreen() {
     });
 
     return unsub;
-  }, [view, userSubcategory, weekStart]);
+  }, [view, userCategory, weekStart]);
 
   const displayConstellationIndex = visitedConstellation ?? currentConstellationIndex;
   const constellationStars = userData?.constellationStars || 0;
@@ -247,8 +247,24 @@ export default function GameScreen() {
   };
 
   const handleVisitConstellation = (index: number) => {
-    setVisitedConstellation(index);
-    setGalaxyView(false);
+    const isCompleted = completedConstellations.some(c => c.constellationIndex === index);
+    const isCurrent = index === currentConstellationIndex;
+    if (isCompleted || isCurrent) {
+      setVisitedConstellation(index);
+      setGalaxyView(false);
+    }
+  };
+
+  const handleContinueConstellation = async (index: number) => {
+    if (index === currentConstellationIndex) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const userRef = doc(db, 'users', auth.currentUser?.uid);
+      await updateDoc(userRef, { currentConstellation: index });
+      setVisitedConstellation(null);
+    } catch (e) {
+      console.error('Error changing constellation:', e);
+    }
   };
 
   const handleBackToCurrent = () => {
@@ -441,6 +457,11 @@ export default function GameScreen() {
                 </>
               )}
               <Text style={styles.smallStarsText}>{visitedSmallStars} estrellas de constancia diaria</Text>
+              {visitedConstellation !== null && visitedConstellation !== currentConstellationIndex && (
+                <TouchableOpacity style={styles.continueButton} onPress={() => handleContinueConstellation(visitedConstellation)}>
+                  <Text style={styles.continueButtonText}>Continuar en esta constelación</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -527,6 +548,8 @@ const styles = StyleSheet.create({
   progressBar: { width: width * 0.55, height: 3, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, marginBottom: 12 },
   progressFill: { height: 3, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 2 },
   smallStarsText: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+  continueButton: { backgroundColor: '#6C63FF', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, marginTop: 12, alignItems: 'center' },
+  continueButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   completeText: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
   rightButtons: { position: 'absolute', top: 55, right: 20, flexDirection: 'row', gap: 12 },
   iconButton: { padding: 8 },

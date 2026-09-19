@@ -7,7 +7,6 @@ export interface Habit {
   id?: string;
   name: string;
   category: string;
-  subcategory?: string;
   frequency: 'daily' | 'weekly';
   weeklyDays?: number;
   goal: number;

@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { signOut } from 'firebase/auth';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth } from '../../config/firebase';
+import { signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../../config/firebase';
 import { useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
 
 export default function ProfileScreen() {
   const { userData, loading } = useUser();
   const { habits } = useHabits();
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
   const totalCompleted = habits.reduce((acc, h) => acc + (h.completedDates?.length || 0), 0);
@@ -23,6 +27,30 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     await signOut(auth);
+  };
+
+  const handleDeleteAccount = () => {
+    setShowDeletePassword(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletePassword) {
+      Alert.alert('Error', 'Ingresá tu contraseña');
+      return;
+    }
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const credential = EmailAuthProvider.credential(user.email!, deletePassword);
+      await reauthenticateWithCredential(user, credential);
+      await deleteDoc(doc(db, 'users', user.uid));
+      await deleteUser(user);
+      setShowDeletePassword(false);
+      setDeletePassword('');
+      Alert.alert('Cuenta eliminada');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo eliminar la cuenta');
+    }
   };
 
   if (loading) return <ActivityIndicator size="large" color="#6C63FF" style={{ flex: 1 }} />;
@@ -75,11 +103,42 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Cerrar sesión */}
+{/* Cerrar sesión */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Ionicons name="log-out-outline" size={20} color="#fff" />
-        <Text style={styles.signOutText}>Cerrar sesión</Text>
+        <Text style={styles.signOutText}>Closing sesión</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+        <Ionicons name="trash-outline" size={20} color="#fff" />
+        <Text style={styles.deleteAccountText}>Eliminar cuenta permanentemente</Text>
+      </TouchableOpacity>
+
+      {showDeletePassword && (
+        <View style={styles.deletePasswordOverlay}>
+          <View style={styles.deletePasswordModal}>
+            <Text style={styles.deletePasswordTitle}>Ingresá tu contraseña</Text>
+            <TextInput
+              style={styles.deletePasswordInput}
+              placeholder="Contraseña"
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              secureTextEntry
+            />
+            <View style={styles.deletePasswordButtons}>
+              <TouchableOpacity
+                style={styles.deletePasswordCancel}
+                onPress={() => { setShowDeletePassword(false); setDeletePassword(''); }}
+              >
+                <Text style={styles.deletePasswordCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deletePasswordConfirm} onPress={confirmDelete}>
+                <Text style={styles.deletePasswordConfirmText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
     </ScrollView>
   );
@@ -105,4 +164,15 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 14, color: '#555' },
   signOutButton: { backgroundColor: '#FF6B6B', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   signOutText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  deleteAccountButton: { backgroundColor: '#D63031', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 },
+  deleteAccountText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  deletePasswordOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  deletePasswordModal: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 },
+  deletePasswordTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 16, textAlign: 'center' },
+  deletePasswordInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 20 },
+  deletePasswordButtons: { flexDirection: 'row', gap: 12 },
+  deletePasswordCancel: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center' },
+  deletePasswordCancelText: { color: '#333', fontSize: 16, fontWeight: '600' },
+  deletePasswordConfirm: { flex: 1, backgroundColor: '#D63031', borderRadius: 10, padding: 14, alignItems: 'center' },
+  deletePasswordConfirmText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

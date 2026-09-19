@@ -16,7 +16,6 @@ export default function EditHabitScreen() {
   const [selectedCategory, setSelectedCategory] = useState<any>(
     habit ? CATEGORIES.find(c => c.name === habit.category) || null : null
   );
-  const [selectedSubcategory, setSelectedSubcategory] = useState(habit?.subcategory || '');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit?.frequency || 'daily');
   const [weeklyDays, setWeeklyDays] = useState(habit?.weeklyDays || 3);
   const [goal, setGoal] = useState(habit?.goal || 21);
@@ -28,7 +27,6 @@ export default function EditHabitScreen() {
     await updateHabit(id, {
       name,
       category: selectedCategory.name,
-      subcategory: selectedSubcategory || undefined,
       frequency,
       weeklyDays: frequency === 'weekly' ? weeklyDays : undefined,
       goal,
@@ -71,30 +69,13 @@ export default function EditHabitScreen() {
             <TouchableOpacity
               key={cat.id}
               style={[styles.categoryCard, selectedCategory?.id === cat.id && { borderColor: cat.color, borderWidth: 2 }]}
-              onPress={() => { setSelectedCategory(cat); setSelectedSubcategory(''); }}
+              onPress={() => setSelectedCategory(cat)}
             >
               <Ionicons name={cat.iconName as any} size={30} color={cat.color} />
               <Text style={styles.categoryName}>{cat.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
-
-        {selectedCategory && selectedCategory.subcategories.length > 0 && (
-          <>
-            <Text style={styles.question}>Subcategoría <Text style={styles.optional}>(opcional)</Text></Text>
-            <View style={styles.subcategoryContainer}>
-              {selectedCategory.subcategories.map((sub: string) => (
-                <TouchableOpacity
-                  key={sub}
-                  style={[styles.subButton, selectedSubcategory === sub && { backgroundColor: selectedCategory.color }]}
-                  onPress={() => setSelectedSubcategory(selectedSubcategory === sub ? '' : sub)}
-                >
-                  <Text style={[styles.subText, selectedSubcategory === sub && { color: '#fff' }]}>{sub}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
 
         <Text style={styles.question}>Frecuencia</Text>
         <View style={styles.row}>

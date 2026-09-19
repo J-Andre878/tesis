@@ -37,7 +37,17 @@ export default function RegisterScreen() {
         createdAt: new Date(),
       });
     } catch (e: any) {
-      setError('Error al crear la cuenta, intenta de nuevo');
+      if (e.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está registrado. Inicia sesión.');
+      } else if (e.code === 'auth/weak-password') {
+        setError('La contraseña es muy débil. Usa al menos 6 caracteres.');
+      } else if (e.code === 'auth/invalid-email') {
+        setError('El correo electrónico no es válido.');
+      } else if (e.code === 'auth/operation-not-allowed') {
+        setError('No se puede crear cuenta. Contacta al administrador.');
+      } else {
+        setError(e.message || 'Error al crear la cuenta, intenta de nuevo');
+      }
     } finally {
       setLoading(false);
     }
