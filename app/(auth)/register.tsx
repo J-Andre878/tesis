@@ -33,6 +33,16 @@ export default function RegisterScreen() {
         xp: 0,
         level: 1,
         currentConstellation: 0,
+        activeConstellation: 'orion',
+        constellations: [
+          { id: 'orion', constellationStars: 0, smallStars: 0, completed: false, locked: false },
+          { id: 'osa-mayor', constellationStars: 0, smallStars: 0, completed: false, locked: true },
+          { id: 'casiopea', constellationStars: 0, smallStars: 0, completed: false, locked: true },
+          { id: 'cruz-del-sur', constellationStars: 0, smallStars: 0, completed: false, locked: true },
+          { id: 'escorpio', constellationStars: 0, smallStars: 0, completed: false, locked: true },
+        ],
+        tutorialSessions: 0,
+        tutorialActive: false,
         lastCompletedDate: null,
         createdAt: new Date(),
       });

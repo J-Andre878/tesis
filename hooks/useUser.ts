@@ -1,9 +1,16 @@
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { CONSTELLATIONS } from '../constants/constellations';
 import { auth, db } from '../config/firebase';
 
-const STARS_PER_CONSTELLATION = 7;
+export interface ConstellationProgress {
+  id: string;
+  constellationStars: number;
+  smallStars: number;
+  completed: boolean;
+  locked: boolean;
+}
 
 export interface UserData {
   name: string;
@@ -13,55 +20,59 @@ export interface UserData {
   xp: number;
   level: number;
   photoURL: string | null;
-  smallStars: number[];
-  constellationStars: number;
-  currentConstellation: number;
+  tutorialSessions?: number;
+  tutorialActive?: boolean;
+  constellations: ConstellationProgress[];
+  activeConstellation: string;
+  smallStars?: number[];
+  constellationStars?: number;
+  currentConstellation?: number;
   lastCompletedDate?: string;
-  completedConstellations?: Array<{
-    constellationIndex: number;
-    stars: number;
-    smallStars: number;
-    date: string;
-  }>;
 }
 
-function computeCurrentConstellation(constellationStars: number): number {
-  return Math.floor(constellationStars / STARS_PER_CONSTELLATION);
-}
-
-function computeCompletedConstellations(constellationStars: number, currentConstellation: number, existing: any[]): any[] {
-  const completed: any[] = [];
-  for (let i = 0; i < currentConstellation; i++) {
-    const existingEntry = existing.find(e => e.constellationIndex === i);
-    if (existingEntry) {
-      completed.push(existingEntry);
-    } else {
-      completed.push({
-        constellationIndex: i,
-        stars: STARS_PER_CONSTELLATION,
-        smallStars: 0,
-        date: new Date().toISOString().split('T')[0],
-      });
-    }
+function migrateConstellations(data: Partial<UserData>): ConstellationProgress[] {
+  if (Array.isArray(data.constellations) && data.constellations.length) {
+    const normalized = CONSTELLATIONS.map((definition, index) => {
+      const existing = data.constellations?.find(item => item.id === definition.id);
+      return {
+        id: definition.id,
+        constellationStars: Math.min(definition.stars.length, existing?.constellationStars || 0),
+        smallStars: Math.min(500, existing?.smallStars || 0),
+        completed: Boolean(existing?.completed) || (existing?.constellationStars || 0) >= definition.stars.length || index < (data.currentConstellation || 0),
+        locked: existing?.locked ?? index > 0,
+      };
+    });
+    return normalized.map((item, index) => ({
+      ...item,
+      locked: index > 0 ? !normalized[index - 1].completed : false,
+    }));
   }
-  return completed;
+
+  const legacyStars = data.constellationStars || 0;
+  const legacySmallStars = Array.isArray(data.smallStars) ? data.smallStars : [];
+  return CONSTELLATIONS.map((definition, index) => {
+    const stars = Math.min(definition.stars.length, Math.max(0, legacyStars - CONSTELLATIONS.slice(0, index).reduce((sum, item) => sum + item.stars.length, 0)));
+    return {
+      id: definition.id,
+      constellationStars: stars,
+      smallStars: Math.min(500, legacySmallStars[index] || 0),
+      completed: stars >= definition.stars.length,
+      locked: index > 0 && stars < definition.stars.length,
+    };
+  }).map((item, index, all) => ({
+    ...item,
+    locked: index > 0 ? !all[index - 1].completed : false,
+  }));
 }
 
 export function useUser() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const processedRef = useRef(false);
 
   useEffect(() => {
-    let unsubscribeUserDoc: (() => void) | null = null;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-        unsubscribeUserDoc = null;
-      }
-      processedRef.current = false;
-
+    let unsubscribeDoc: (() => void) | null = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, user => {
+      unsubscribeDoc?.();
       if (!user) {
         setUserData(null);
         setLoading(false);
@@ -69,93 +80,47 @@ export function useUser() {
       }
 
       setLoading(true);
-      unsubscribeUserDoc = onSnapshot(
-        doc(db, 'users', user.uid),
-        (snap) => {
-          if (snap.exists()) {
-            const data = snap.data() as UserData & { currentConstellation?: number; lastCompletedDate?: string; completedConstellations?: any[] };
-            const currentConstellation = data.currentConstellation ?? computeCurrentConstellation(data.constellationStars || 0);
-            const completedConstellations = computeCompletedConstellations(data.constellationStars || 0, currentConstellation, data.completedConstellations || []);
-            const needsUpdate = !('constellationStars' in (data as any)) || !('currentConstellation' in (data as any));
-            if (needsUpdate) {
-              const updates: any = {};
-              if (!('constellationStars' in (data as any))) updates.constellationStars = 0;
-              if (!('currentConstellation' in (data as any))) updates.currentConstellation = 0;
-              updateDoc(doc(db, 'users', user.uid), updates).catch(console.error);
-            }
-
-            setUserData({
-              ...data,
-              constellationStars: data.constellationStars || 0,
-              currentConstellation,
-              smallStars: Array.isArray(data.smallStars) ? data.smallStars : [],
-              completedConstellations,
-            });
-            setLoading(false);
-          } else {
-            setUserData(null);
-            setLoading(false);
-          }
-        },
-        (error) => {
-          console.error('Error loading user profile:', error);
+      unsubscribeDoc = onSnapshot(doc(db, 'users', user.uid), snapshot => {
+        if (!snapshot.exists()) {
+          setUserData(null);
           setLoading(false);
+          return;
         }
-      );
+
+        const raw = snapshot.data() as Partial<UserData>;
+        const constellations = migrateConstellations(raw);
+        const requestedActive = raw.activeConstellation && constellations.find(item => item.id === raw.activeConstellation && !item.locked);
+        const activeConstellation = requestedActive?.id || constellations.find(item => !item.locked)?.id || CONSTELLATIONS[0].id;
+        const migration: Record<string, unknown> = {};
+        if (!Array.isArray(raw.constellations)) migration.constellations = constellations;
+        if (!raw.activeConstellation) migration.activeConstellation = activeConstellation;
+        if (typeof raw.tutorialSessions !== 'number') migration.tutorialSessions = 0;
+        if (Object.keys(migration).length) {
+          updateDoc(doc(db, 'users', user.uid), migration).catch(error => console.error('Error migrating user progress:', error));
+        }
+        setUserData({
+          ...raw,
+          constellations,
+          activeConstellation,
+          tutorialSessions: raw.tutorialSessions || 0,
+          name: raw.name || '',
+          email: raw.email || user.email || '',
+          xp: raw.xp || 0,
+          level: raw.level || 1,
+          photoURL: raw.photoURL || null,
+        } as UserData);
+        setLoading(false);
+      }, error => {
+        console.error('Error loading user profile:', error);
+        setLoading(false);
+      });
     });
 
     return () => {
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-      }
+      unsubscribeDoc?.();
       unsubscribeAuth();
     };
   }, []);
-
-  useEffect(() => {
-    const applySmallStarsDecay = async () => {
-      const user = auth.currentUser;
-      if (!user || !userData || processedRef.current) return;
-
-      const lastCompletedDate = userData.lastCompletedDate;
-      if (!lastCompletedDate) {
-        processedRef.current = true;
-        return;
-      }
-
-      const lastDate = new Date(lastCompletedDate);
-      const now = new Date();
-      const diffTime = now.getTime() - lastDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays > 0) {
-        const currentConstellation = userData.currentConstellation || 0;
-        const currentSmallStars = userData.smallStars?.[currentConstellation] || 0;
-        const newSmallStars = Math.max(0, currentSmallStars - diffDays);
-        const today = now.toISOString().split('T')[0];
-
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const newSmallStarsArray = Array.isArray(userData.smallStars) ? [...userData.smallStars] : [];
-          while (newSmallStarsArray.length <= currentConstellation) {
-            newSmallStarsArray.push(0);
-          }
-          newSmallStarsArray[currentConstellation] = newSmallStars;
-          await updateDoc(userRef, {
-            smallStars: newSmallStarsArray,
-            lastCompletedDate: today,
-          });
-          setUserData(prev => prev ? { ...prev, smallStars: newSmallStarsArray, lastCompletedDate: today } : null);
-        } catch (e) {
-          console.error('Error applying small stars decay:', e);
-        }
-      }
-
-      processedRef.current = true;
-    };
-
-    applySmallStarsDecay();
-  }, [userData]);
 
   return { userData, loading };
 }

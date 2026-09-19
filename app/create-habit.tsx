@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CATEGORIES } from '../constants/habits';
-import { useHabits } from '../hooks/useHabits';
+import { MAX_HABITS, useHabits } from '../hooks/useHabits';
 
 export default function CreateHabitScreen() {
   const router = useRouter();
-  const { addHabit } = useHabits();
+  const { habits, addHabit } = useHabits();
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -20,9 +20,13 @@ export default function CreateHabitScreen() {
 
   const handleFinish = async () => {
     if (!name || !selectedCategory) return;
+    if (habits.length >= MAX_HABITS) {
+      Alert.alert('Límite alcanzado', `Solo puedes tener hasta ${MAX_HABITS} hábitos.`);
+      return;
+    }
     setLoading(true);
     const finalGoal = goal === 0 && customGoal ? parseInt(customGoal) || 0 : goal;
-    await addHabit({
+    const added = await addHabit({
       name,
       category: selectedCategory.name,
       frequency,
@@ -32,7 +36,11 @@ export default function CreateHabitScreen() {
       color: selectedCategory.color,
     });
     setLoading(false);
-    router.back();
+    if (added) {
+      router.back();
+    } else {
+      Alert.alert('No se pudo crear el hábito', 'Verifica que no hayas alcanzado el límite de hábitos e inténtalo de nuevo.');
+    }
   };
 
   return (
@@ -193,9 +201,9 @@ const styles = StyleSheet.create({
   nextText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   disabled: { backgroundColor: '#ccc' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  freqButton: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center' },
+  freqButton: { flex: 1, minHeight: 64, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center', justifyContent: 'center' },
   freqButtonActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  freqText: { fontSize: 15, color: '#333' },
+  freqText: { fontSize: 15, color: '#333', textAlign: 'center' },
   freqTextActive: { color: '#fff', fontWeight: 'bold' },
   dayButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#ddd', alignItems: 'center', justifyContent: 'center' },
   dayButtonActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },

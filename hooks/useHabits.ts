@@ -1,6 +1,7 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
+import { CONSTELLATIONS, MAX_SMALL_STARS } from '../constants/constellations';
 import { auth, db } from '../config/firebase';
 
 export interface Habit {
@@ -18,6 +19,8 @@ export interface Habit {
   completedDates: string[];
   consecutiveDays: number;
 }
+
+export const MAX_HABITS = 8;
 
 function getWeekMondayIso(date: Date) {
   const monday = new Date(date);
@@ -52,9 +55,9 @@ export function useHabits() {
     }
   };
 
-  const addHabit = async (habit: Omit<Habit, 'id' | 'userId' | 'createdAt' | 'streak' | 'completedDates'>) => {
+  const addHabit = async (habit: Omit<Habit, 'id' | 'userId' | 'createdAt' | 'streak' | 'completedDates' | 'consecutiveDays'>) => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user || habits.length >= MAX_HABITS) return false;
     try {
       const cleanHabit = Object.fromEntries(
         Object.entries(habit).filter(([_, value]) => value !== undefined)
@@ -68,8 +71,10 @@ export function useHabits() {
         completedDates: [],
       });
       await fetchHabits();
+      return true;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
@@ -160,52 +165,41 @@ export function useHabits() {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
-        const userData = userSnap.data() as { constellationStars?: number; currentConstellation?: number; completedConstellations?: any[]; smallStars?: number[] } | undefined;
-
-        const currentConstellation = userData?.currentConstellation || 0;
-        const currentSmallStars = Array.isArray(userData?.smallStars) ? userData.smallStars : [];
-        const newSmallStars = currentSmallStars.map((v: any, i: number) => (v || 0));
-        while (newSmallStars.length <= currentConstellation) {
-          newSmallStars.push(0);
-        }
-        newSmallStars[currentConstellation] = (newSmallStars[currentConstellation] || 0) + 1;
-
-        const userUpdates: {
-          xp: ReturnType<typeof increment>;
-          smallStars: number[];
-          constellationStars?: ReturnType<typeof increment>;
-          lastConstellationStarDate?: string;
-          currentConstellation?: number;
-          lastCompletedDate?: string;
-          completedConstellations?: any[];
-        } = {
-          xp: increment(10),
-          smallStars: newSmallStars,
-          lastCompletedDate: today,
+        const userData = userSnap.data() as {
+          constellations?: Array<{ id: string; constellationStars?: number; smallStars?: number; completed?: boolean; locked?: boolean }>;
+          activeConstellation?: string;
+          smallStars?: number[];
         };
-
-        if (gotConstellationStar) {
-          userUpdates.constellationStars = increment(1);
-          userUpdates.lastConstellationStarDate = today;
-
-          const newTotalStars = (userData?.constellationStars || 0) + 1;
-          const starsInCurrent = newTotalStars % 7;
-
-          if (starsInCurrent === 0) {
-            userUpdates.currentConstellation = currentConstellation + 1;
-
-            const completed = userData?.completedConstellations || [];
-            const snapshot = {
-              constellationIndex: currentConstellation,
-              stars: STARS_PER_CONSTELLATION,
-              smallStars: newSmallStars[currentConstellation] || 0,
-              date: today,
-            };
-            userUpdates.completedConstellations = [...completed, snapshot];
+        const legacySmallStars = Array.isArray(userData.smallStars) ? userData.smallStars : [];
+        const progress = CONSTELLATIONS.map((definition, index) => {
+          const existing = userData.constellations?.find(item => item.id === definition.id);
+          const legacyTotalStars = (userData as any).constellationStars || 0;
+          const legacyStars = Math.min(definition.stars.length, Math.max(0, legacyTotalStars - CONSTELLATIONS.slice(0, index).reduce((sum, item) => sum + item.stars.length, 0)));
+          return {
+            id: definition.id,
+            constellationStars: Math.min(definition.stars.length, existing?.constellationStars || legacyStars || 0),
+            smallStars: Math.min(MAX_SMALL_STARS, existing?.smallStars ?? legacySmallStars[index] ?? 0),
+            completed: Boolean(existing?.completed),
+            locked: existing?.locked ?? index > 0,
+          };
+        });
+        const activeId = userData.activeConstellation || progress.find(item => !item.locked)?.id || progress[0].id;
+        const activeIndex = Math.max(0, progress.findIndex(item => item.id === activeId));
+        const active = progress[activeIndex];
+        active.smallStars = Math.min(MAX_SMALL_STARS, active.smallStars + 1);
+        if (gotConstellationStar && !active.completed) {
+          active.constellationStars += 1;
+          active.completed = active.constellationStars >= CONSTELLATIONS[activeIndex].stars.length;
+          if (active.completed && activeIndex + 1 < progress.length) {
+            progress[activeIndex + 1].locked = false;
           }
         }
-
-        await updateDoc(userRef, userUpdates);
+        await updateDoc(userRef, {
+          xp: increment(10),
+          constellations: progress,
+          activeConstellation: active.id,
+          lastCompletedDate: today,
+        });
       }
 
       await fetchHabits();
@@ -261,5 +255,5 @@ export function useHabits() {
     };
   }, []);
 
-  return { habits, loading, isProcessing, addHabit, fetchHabits, completeHabit, deleteHabit };
+  return { habits, loading, isProcessing, addHabit, fetchHabits, completeHabit, deleteHabit, updateHabit };
 }

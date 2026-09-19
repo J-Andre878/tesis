@@ -1,11 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
 import { getHabitIconName } from '../../constants/habits';
-import { useHabits } from '../../hooks/useHabits';
+import { MAX_HABITS, useHabits } from '../../hooks/useHabits';
+import { useUser } from '../../hooks/useUser';
+import { TutorialTooltip } from '../../components/TutorialTooltip';
 
 export default function HabitsScreen() {
   const { habits, loading, completeHabit, deleteHabit, isProcessing } = useHabits();
+  const { userData } = useUser();
+  const [tutorialVisible, setTutorialVisible] = useState(true);
   const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
@@ -43,7 +48,16 @@ export default function HabitsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Mis Hábitos</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => router.push('/create-habit')}>
+        <TouchableOpacity
+          style={[styles.addButton, habits.length >= MAX_HABITS && styles.addButtonDisabled]}
+          onPress={() => {
+            if (habits.length >= MAX_HABITS) {
+              Alert.alert('Límite alcanzado', `Solo puedes tener hasta ${MAX_HABITS} hábitos.`);
+              return;
+            }
+            router.push('/create-habit');
+          }}
+        >
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -95,6 +109,13 @@ export default function HabitsScreen() {
           contentContainerStyle={{ padding: 16 }}
         />
       )}
+      {userData?.tutorialActive && tutorialVisible && habits.length > 0 && (
+        <TutorialTooltip
+          position="bottom"
+          text="El ícono de papelera elimina un hábito y también su progreso. Esta acción no se puede deshacer."
+          onDismiss={() => setTutorialVisible(false)}
+        />
+      )}
     </View>
   );
 }
@@ -104,6 +125,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60, backgroundColor: '#fff' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#333' },
   addButton: { backgroundColor: '#6C63FF', borderRadius: 14, padding: 6 },
+  addButtonDisabled: { opacity: 0.5 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 20, fontWeight: 'bold', color: '#333' },
   emptySubtext: { fontSize: 14, color: '#999' },

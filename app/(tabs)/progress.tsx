@@ -3,10 +3,13 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { getHabitIconName } from '../../constants/habits';
 import { useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
+import { TutorialTooltip } from '../../components/TutorialTooltip';
+import { useState } from 'react';
 
 export default function ProgressScreen() {
   const { habits, loading } = useHabits();
   const { userData } = useUser();
+  const [tutorialVisible, setTutorialVisible] = useState(true);
 
   const getLast7Days = () => {
     const days = [];
@@ -26,9 +29,10 @@ export default function ProgressScreen() {
       (new Date().getTime() - new Date(habit.createdAt?.toDate?.() || habit.createdAt).getTime())
       / (1000 * 60 * 60 * 24)
     ));
-    const expected = habit.frequency === 'daily'
+    const elapsedCommitmentDays = habit.frequency === 'daily'
       ? daysSinceCreated
       : Math.floor(daysSinceCreated / 7) * (habit.weeklyDays || 3);
+    const expected = Math.min(habit.goal || elapsedCommitmentDays, elapsedCommitmentDays);
     return Math.min(100, Math.round((total / Math.max(1, expected)) * 100));
   };
 
@@ -49,6 +53,7 @@ export default function ProgressScreen() {
   if (loading) return <ActivityIndicator size="large" color="#6C63FF" style={{ flex: 1 }} />;
 
   return (
+    <View style={styles.screen}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Mi Progreso</Text>
 
@@ -119,10 +124,19 @@ export default function ProgressScreen() {
       </View>
 
     </ScrollView>
+    {userData?.tutorialActive && tutorialVisible && (
+      <TutorialTooltip
+        position="top"
+        text="El porcentaje de consistencia se calcula según los días que te comprometiste a cumplir este hábito, no sobre todos los días del mes."
+        onDismiss={() => setTutorialVisible(false)}
+      />
+    )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   container: { flex: 1, backgroundColor: '#f8f8f8' },
   content: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 20 },

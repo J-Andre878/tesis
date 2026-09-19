@@ -5,11 +5,11 @@ import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { useUser } from '../../hooks/useUser';
 import { useHabits } from '../../hooks/useHabits';
 import { auth, db } from '../../config/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { CONSTELLATIONS as CONSTELLATION_DEFINITIONS, MAX_SMALL_STARS } from '../../constants/constellations';
+import { TutorialTooltip } from '../../components/TutorialTooltip';
 
 const { width, height } = Dimensions.get('window');
-
-const STARS_PER_CONSTELLATION = 7;
 
 const CONSTELLATIONS = [
   {
@@ -169,8 +169,10 @@ export default function GameScreen() {
   const [leaderboard, setLeaderboard] = useState<{ id: string; userName: string; userLevel: number; score: number }[]>([]);
   const [galaxyView, setGalaxyView] = useState(false);
   const [visitedConstellation, setVisitedConstellation] = useState<number | null>(null);
+  const [tutorialStep, setTutorialStep] = useState(0);
 
-  const currentConstellationIndex = userData?.currentConstellation ?? 0;
+  const activeConstellationIndex = Math.max(0, CONSTELLATION_DEFINITIONS.findIndex(item => item.id === userData?.activeConstellation));
+  const currentConstellationIndex = activeConstellationIndex;
   const userCategory = useMemo(() => habits.find(h => h.category)?.category || '', [habits]);
 
   const weekStart = useMemo(() => {
@@ -211,34 +213,29 @@ export default function GameScreen() {
   }, [view, userCategory, weekStart]);
 
   const displayConstellationIndex = visitedConstellation ?? currentConstellationIndex;
-  const constellationStars = userData?.constellationStars || 0;
-  const smallStars = userData?.smallStars?.[displayConstellationIndex] || 0;
-
-  let starsInDisplay = constellationStars - (displayConstellationIndex * STARS_PER_CONSTELLATION);
-  if (starsInDisplay < 0) starsInDisplay = 0;
-  if (starsInDisplay > STARS_PER_CONSTELLATION) starsInDisplay = STARS_PER_CONSTELLATION;
-
-  let starsInCurrent = constellationStars - (currentConstellationIndex * STARS_PER_CONSTELLATION);
-  if (starsInCurrent < 0) starsInCurrent = 0;
-  if (starsInCurrent > STARS_PER_CONSTELLATION) starsInCurrent = STARS_PER_CONSTELLATION;
+  const displayProgress = userData?.constellations?.[displayConstellationIndex];
+  const displayDefinition = CONSTELLATION_DEFINITIONS[displayConstellationIndex] || CONSTELLATION_DEFINITIONS[0];
+  const starsInDisplay = displayProgress?.constellationStars || 0;
+  const smallStars = Math.min(MAX_SMALL_STARS, displayProgress?.smallStars || 0);
 
   const displayConst = CONSTELLATIONS[Math.min(displayConstellationIndex, CONSTELLATIONS.length - 1)];
   const svgW = width * 0.95;
-  const svgH = height * 0.7;
+  const svgH = height * 0.62;
+  const constellationScale = 1.4;
+  const constellationX = (value: number) => (0.5 + (value - 0.5) * constellationScale) * svgW;
+  const constellationY = (value: number) => (0.5 + (value - 0.5) * constellationScale) * svgH;
 
-  const starsNeeded = STARS_PER_CONSTELLATION - starsInDisplay;
-  const progressPercent = (starsInDisplay / STARS_PER_CONSTELLATION) * 100;
+  const starsNeeded = displayDefinition.stars.length - starsInDisplay;
+  const progressPercent = (starsInDisplay / displayDefinition.stars.length) * 100;
 
-  const completedConstellations = userData?.completedConstellations || [];
+  const completedConstellations = userData?.constellations || [];
 
   const isConstellationCompleted = (index: number) => {
-    return completedConstellations.some(c => c.constellationIndex === index);
+    return Boolean(completedConstellations[index]?.completed);
   };
 
   const getConstellationProgress = (index: number) => {
-    if (index < currentConstellationIndex) return STARS_PER_CONSTELLATION;
-    if (index === currentConstellationIndex) return starsInCurrent;
-    return 0;
+    return userData?.constellations?.[index]?.constellationStars || 0;
   };
 
   const handleGalaxyBack = () => {
@@ -247,33 +244,35 @@ export default function GameScreen() {
   };
 
   const handleVisitConstellation = (index: number) => {
-    const isCompleted = completedConstellations.some(c => c.constellationIndex === index);
-    const isCurrent = index === currentConstellationIndex;
-    if (isCompleted || isCurrent) {
+    const progress = userData?.constellations?.[index];
+    if (progress && !progress.locked) {
       setVisitedConstellation(index);
       setGalaxyView(false);
     }
   };
 
-  const handleContinueConstellation = async (index: number) => {
-    if (index === currentConstellationIndex) return;
+  async function handleContinueConstellation(index: number) {
+    const progress = userData?.constellations?.[index];
+    if (!progress || progress.locked || progress.smallStars >= MAX_SMALL_STARS) return;
     try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const userRef = doc(db, 'users', auth.currentUser?.uid);
-      await updateDoc(userRef, { currentConstellation: index });
+      const next = (userData?.constellations || []).map(item => ({ ...item }));
+      next[index].locked = false;
+      await updateDoc(doc(db, 'users', auth.currentUser!.uid), {
+        activeConstellation: next[index].id,
+        constellations: next,
+      });
       setVisitedConstellation(null);
     } catch (e) {
       console.error('Error changing constellation:', e);
     }
-  };
+  }
 
   const handleBackToCurrent = () => {
     setVisitedConstellation(null);
   };
 
   const getVisitedSmallStars = () => {
-    if (visitedConstellation === null) return smallStars;
-    return userData?.smallStars?.[visitedConstellation] || 0;
+    return smallStars;
   };
 
   const visitedSmallStars = getVisitedSmallStars();
@@ -291,18 +290,28 @@ export default function GameScreen() {
   const renderConstellationMiniature = (constellation: typeof CONSTELLATIONS[0], index: number) => {
     const isCompleted = isConstellationCompleted(index);
     const isCurrent = index === currentConstellationIndex;
+    const isUnlocked = !userData?.constellations?.[index]?.locked;
     const isVisited = index === visitedConstellation;
     const progress = getConstellationProgress(index);
 
     return (
       <Pressable
         key={index}
-        style={[styles.miniatureCard, isVisited && styles.miniatureCardVisited]}
+        style={[
+          styles.miniatureCard,
+          isUnlocked && styles.miniatureCardUnlocked,
+          isCompleted && styles.miniatureCardCompleted,
+          isVisited && styles.miniatureCardVisited,
+        ]}
         onPress={() => {
           handleVisitConstellation(index);
         }}
       >
-        <View style={[styles.miniatureGlow, isCompleted && styles.miniatureGlowActive]} />
+        <View style={[
+          styles.miniatureGlow,
+          isUnlocked && styles.miniatureGlowUnlocked,
+          isCompleted && styles.miniatureGlowActive,
+        ]} />
         <View style={styles.miniatureContent}>
           <Svg width={60} height={60}>
             {constellation.lines.map(([a, b], i) => {
@@ -314,7 +323,7 @@ export default function GameScreen() {
                   key={i}
                   x1={sA.x * 60} y1={sA.y * 60}
                   x2={sB.x * 60} y2={sB.y * 60}
-                  stroke={isCompleted ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.1)"}
+                  stroke={isUnlocked ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.1)"}
                   strokeWidth="1"
                 />
               );
@@ -328,6 +337,7 @@ export default function GameScreen() {
                   key={i}
                   style={[
                     styles.miniatureDot,
+                    isUnlocked && styles.miniatureDotUnlocked,
                     isCompleted && styles.miniatureDotCompleted,
                     isCurrent && styles.miniatureDotCurrent,
                     isVisited && styles.miniatureDotVisited,
@@ -337,14 +347,22 @@ export default function GameScreen() {
             })}
           </View>
         </View>
-        <Text style={[styles.miniatureName, isCompleted && styles.miniatureNameActive, isVisited && styles.miniatureNameVisited]}>
+        <Text style={[
+          styles.miniatureName,
+          isUnlocked && styles.miniatureNameUnlocked,
+          isCompleted && styles.miniatureNameActive,
+          isVisited && styles.miniatureNameVisited,
+        ]}>
           {constellation.name}
         </Text>
         {isVisited && (
           <Text style={styles.miniatureVisiting}>Visitando</Text>
         )}
         {isCurrent && !isVisited && (
-          <Text style={styles.miniatureProgress}>{progress}/{STARS_PER_CONSTELLATION}</Text>
+          <Text style={styles.miniatureProgress}>{progress}/{CONSTELLATION_DEFINITIONS[index].stars.length}</Text>
+        )}
+        {userData?.constellations?.[index]?.locked && (
+          <Text style={styles.miniatureProgress}>Bloqueada</Text>
         )}
         {isCompleted && !isVisited && (
           <Text style={styles.miniatureCompleted}>Completada</Text>
@@ -388,20 +406,20 @@ export default function GameScreen() {
             <View style={styles.topContent}>
               <Text style={styles.title}>Habit Galaxy</Text>
               <Text style={styles.subtitle}>
-                {starsInDisplay} / {STARS_PER_CONSTELLATION} estrellas · {displayConst.name}
+                {starsInDisplay} / {displayDefinition.stars.length} estrellas · {displayConst.name}
               </Text>
               <View style={styles.viewToggle}>
                 <TouchableOpacity
-                  style={[styles.viewToggleBtn, view === 'sky' && styles.viewToggleBtnActive]}
+                  style={[styles.viewToggleBtn, styles.viewToggleBtnActive]}
                   onPress={() => setView('sky')}
                 >
-                  <Text style={[styles.viewToggleText, view === 'sky' && styles.viewToggleTextActive]}>Mi Cielo</Text>
+                  <Text style={[styles.viewToggleText, styles.viewToggleTextActive]}>Mi Cielo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.viewToggleBtn, view === 'leaderboard' && styles.viewToggleBtnActive]}
+                  style={styles.viewToggleBtn}
                   onPress={() => setView('leaderboard')}
                 >
-                  <Text style={[styles.viewToggleText, view === 'leaderboard' && styles.viewToggleTextActive]}>Tabla de Líderes</Text>
+                  <Text style={styles.viewToggleText}>Tabla de Líderes</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -409,7 +427,7 @@ export default function GameScreen() {
 
           <View style={styles.constellationCenter}>
             <View style={styles.constellationInner}>
-              <Svg width={svgW} height={svgH}>
+              <Svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
                 {displayConst.lines.map(([a, b], i) => {
                   if (a >= starsInDisplay || b >= starsInDisplay) return null;
                   const sA = displayConst.stars[a];
@@ -417,8 +435,8 @@ export default function GameScreen() {
                   return (
                     <Line
                       key={i}
-                      x1={sA.x * svgW} y1={sA.y * svgH}
-                      x2={sB.x * svgW} y2={sB.y * svgH}
+                      x1={constellationX(sA.x)} y1={constellationY(sA.y)}
+                      x2={constellationX(sB.x)} y2={constellationY(sB.y)}
                       stroke="rgba(255,255,255,0.25)"
                       strokeWidth="1"
                     />
@@ -432,8 +450,8 @@ export default function GameScreen() {
                   return (
                     <PulsingConstellationStar
                       key={`pulse-${i}`}
-                      x={star.x * svgW}
-                      y={star.y * svgH}
+                      x={constellationX(star.x)}
+                      y={constellationY(star.y)}
                       index={i}
                     />
                   );
@@ -444,12 +462,12 @@ export default function GameScreen() {
 
           {!fullscreen && (
             <View style={styles.bottomContent}>
-              {starsInDisplay >= STARS_PER_CONSTELLATION ? (
+              {starsInDisplay >= displayDefinition.stars.length ? (
                 <Text style={styles.completeText}>Constelacion completada</Text>
               ) : (
                 <>
                   <Text style={styles.nextStarText}>
-                    Faltan <Text style={styles.highlight}>{starsNeeded} semanas perfectas</Text> para completar esta constelación
+                  Faltan <Text style={styles.highlight}>{starsNeeded} rachas de 7 días</Text> para completar esta constelación
                   </Text>
                   <View style={styles.progressBar}>
                     <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
@@ -457,6 +475,9 @@ export default function GameScreen() {
                 </>
               )}
               <Text style={styles.smallStarsText}>{visitedSmallStars} estrellas de constancia diaria</Text>
+              {visitedSmallStars >= MAX_SMALL_STARS && (
+                <Text style={styles.completeText}>Solo ver: límite de {MAX_SMALL_STARS} estrellas pequeñas alcanzado</Text>
+              )}
               {visitedConstellation !== null && visitedConstellation !== currentConstellationIndex && (
                 <TouchableOpacity style={styles.continueButton} onPress={() => handleContinueConstellation(visitedConstellation)}>
                   <Text style={styles.continueButtonText}>Continuar en esta constelación</Text>
@@ -498,7 +519,7 @@ export default function GameScreen() {
             <Text style={styles.leaderboardTitle}>Ranking Semanal</Text>
             <View style={{ width: 60 }} />
           </View>
-          {!userSubcategory ? (
+          {!userCategory ? (
             <Text style={styles.leaderboardEmpty}>Agrega una subcategoria a algun habito para participar en el ranking</Text>
           ) : (
             <FlatList
@@ -529,6 +550,19 @@ export default function GameScreen() {
           )}
         </View>
       )}
+      {userData?.tutorialActive && tutorialStep < 3 && !galaxyView && view === 'sky' && (
+        <TutorialTooltip
+          position={tutorialStep === 2 ? 'center' : 'top'}
+          text={
+            tutorialStep === 0
+              ? 'El botón de galaxia abre la vista donde puedes ver y navegar entre tus constelaciones desbloqueadas.'
+              : tutorialStep === 1
+                ? 'El botón de pantalla completa oculta los controles. Toca cualquier parte de la pantalla para volver a la vista normal.'
+                : 'Las estrellas pequeñas se ganan al completar hábitos. Las estrellas de constelación se ganan con 7 días consecutivos de constancia en un hábito.'
+          }
+          onDismiss={() => setTutorialStep(step => step + 1)}
+        />
+      )}
     </View>
   );
 }
@@ -539,8 +573,8 @@ const styles = StyleSheet.create({
   topContent: { alignItems: 'center', paddingTop: 65 },
   title: { fontSize: 24, fontWeight: 'bold', color: '#fff', letterSpacing: 3 },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
-  constellationCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  constellationInner: { width: width * 0.95, height: height * 0.7 },
+  constellationCenter: { position: 'absolute', left: 0, right: 0, top: height * 0.19, height: height * 0.62, alignItems: 'center', justifyContent: 'center' },
+  constellationInner: { width: width * 0.95, height: height * 0.62 },
   constellationDotLarge: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
   bottomContent: { position: 'absolute', bottom: 60, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 32 },
   nextStarText: { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center', marginBottom: 10 },
@@ -584,13 +618,18 @@ const styles = StyleSheet.create({
   galaxyClose: { fontSize: 16, color: 'rgba(255,255,255,0.7)' },
   galaxyContent: { paddingHorizontal: 24, paddingBottom: 40, alignItems: 'center' },
   miniatureCard: { width: width * 0.4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  miniatureCardUnlocked: { backgroundColor: 'rgba(73, 190, 170, 0.18)', borderColor: 'rgba(111, 231, 205, 0.65)' },
+  miniatureCardCompleted: { backgroundColor: 'rgba(108, 99, 255, 0.2)', borderColor: 'rgba(170, 163, 255, 0.8)' },
   miniatureGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 16, opacity: 0 },
+  miniatureGlowUnlocked: { opacity: 1, backgroundColor: 'rgba(73, 190, 170, 0.16)' },
   miniatureGlowActive: { opacity: 1, backgroundColor: 'rgba(108,99,255,0.15)' },
   miniatureContent: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
   miniatureDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.3)', position: 'absolute' },
+  miniatureDotUnlocked: { backgroundColor: '#7ff0d0' },
   miniatureDotCompleted: { backgroundColor: '#fff' },
   miniatureDotCurrent: { backgroundColor: 'rgba(255,255,255,0.8)' },
   miniatureName: { fontSize: 14, fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', marginTop: 10, textAlign: 'center' },
+  miniatureNameUnlocked: { color: '#a8ffe9' },
   miniatureNameActive: { color: '#fff' },
   miniatureProgress: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
   miniatureCompleted: { fontSize: 11, color: '#6C63FF', marginTop: 4, fontWeight: 'bold' },

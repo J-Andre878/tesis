@@ -106,7 +106,7 @@ export default function ProfileScreen() {
 {/* Cerrar sesión */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Ionicons name="log-out-outline" size={20} color="#fff" />
-        <Text style={styles.signOutText}>Closing sesión</Text>
+        <Text style={styles.signOutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
