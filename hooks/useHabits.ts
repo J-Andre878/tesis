@@ -2,8 +2,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import { auth, db } from '../config/firebase';
-import * as Notifications from 'expo-notifications';
-import { checkAndSendReminders, scheduleHabitReminder } from '../services/notifications';
 
 export interface Habit {
   id?: string;
@@ -61,7 +59,7 @@ export function useHabits() {
       const cleanHabit = Object.fromEntries(
         Object.entries(habit).filter(([_, value]) => value !== undefined)
       );
-      const docRef = await addDoc(collection(db, 'habits'), {
+      await addDoc(collection(db, 'habits'), {
         ...cleanHabit,
         userId: user.uid,
         createdAt: new Date(),
@@ -70,7 +68,6 @@ export function useHabits() {
         completedDates: [],
       });
       await fetchHabits();
-      await scheduleHabitReminder(docRef.id, habit.name, 5);
     } catch (e) {
       console.error(e);
     }
@@ -167,9 +164,7 @@ export function useHabits() {
 
         const currentConstellation = userData?.currentConstellation || 0;
         const currentSmallStars = Array.isArray(userData?.smallStars) ? userData.smallStars : [];
-        const newSmallStars = currentSmallStars.map((v: any, i: number) =>
-          i === currentConstellation ? (v || 0) + 1 : (v || 0)
-        );
+        const newSmallStars = currentSmallStars.map((v: any, i: number) => (v || 0));
         while (newSmallStars.length <= currentConstellation) {
           newSmallStars.push(0);
         }
@@ -246,11 +241,10 @@ export function useHabits() {
       const q = query(collection(db, 'habits'), where('userId', '==', user.uid));
       unsubscribeHabits = onSnapshot(
         q,
-        async (snapshot) => {
+        (snapshot) => {
           const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
           setHabits(data);
           setLoading(false);
-          await checkAndSendReminders(data);
         },
         (error) => {
           console.error('Error loading habits:', error);
