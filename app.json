@@ -41,7 +41,22 @@
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff",
+          "android": {
+            "notificationChannel": {
+              "name": "Recordatorios de hábitos",
+              "description": "Notificaciones para recordar completar tus hábitos",
+              "importance": "HIGH",
+              "lightColor": "#6C63FF",
+              "lockscreenVisibility": "PUBLIC"
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

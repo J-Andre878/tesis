@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { CATEGORIES, GOAL_OPTIONS } from '../constants/habits';
+import { CATEGORIES } from '../constants/habits';
 import { useHabits } from '../hooks/useHabits';
 
 export default function CreateHabitScreen() {
@@ -15,17 +15,19 @@ export default function CreateHabitScreen() {
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [weeklyDays, setWeeklyDays] = useState(3);
   const [goal, setGoal] = useState(21);
+  const [customGoal, setCustomGoal] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleFinish = async () => {
     if (!name || !selectedCategory) return;
     setLoading(true);
+    const finalGoal = goal === 0 && customGoal ? parseInt(customGoal) || 0 : goal;
     await addHabit({
       name,
       category: selectedCategory.name,
       frequency,
       weeklyDays: frequency === 'weekly' ? weeklyDays : undefined,
-      goal,
+      goal: finalGoal,
       icon: selectedCategory.iconName,
       color: selectedCategory.color,
     });
@@ -81,24 +83,27 @@ export default function CreateHabitScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.question}>¿Con qué frecuencia?</Text>
+            <Text style={styles.question}>¿Con qué frecuencia vas a hacer este hábito?</Text>
             <View style={styles.row}>
-              {['daily', 'weekly'].map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.freqButton, frequency === f && styles.freqButtonActive]}
-                  onPress={() => setFrequency(f as 'daily' | 'weekly')}
-                >
-                  <Text style={[styles.freqText, frequency === f && styles.freqTextActive]}>{f === 'daily' ? 'Diario' : 'Semanal'}</Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[styles.freqButton, frequency === 'daily' && styles.freqButtonActive]}
+                onPress={() => setFrequency('daily')}
+              >
+                <Text style={[styles.freqText, frequency === 'daily' && styles.freqTextActive]}>Todos los días</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.freqButton, frequency === 'weekly' && styles.freqButtonActive]}
+                onPress={() => setFrequency('weekly')}
+              >
+                <Text style={[styles.freqText, frequency === 'weekly' && styles.freqTextActive]}>Algunos días de la semana</Text>
+              </TouchableOpacity>
             </View>
 
             {frequency === 'weekly' && (
               <>
                 <Text style={styles.question}>¿Cuántos días a la semana?</Text>
                 <View style={styles.row}>
-                  {[2, 3, 4, 5, 6, 7].map((d) => (
+                  {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                     <TouchableOpacity
                       key={d}
                       style={[styles.dayButton, weeklyDays === d && styles.dayButtonActive]}
@@ -111,18 +116,55 @@ export default function CreateHabitScreen() {
               </>
             )}
 
-            <Text style={styles.question}>¿Cuál es tu meta?</Text>
+            <Text style={styles.question}>¿Hasta cuándo te comprometes?</Text>
             <View style={styles.row}>
-              {GOAL_OPTIONS.map((g) => (
-                <TouchableOpacity
-                  key={g.value}
-                  style={[styles.goalButton, goal === g.value && styles.goalButtonActive]}
-                  onPress={() => setGoal(g.value)}
-                >
-                  <Text style={[styles.goalText, goal === g.value && styles.goalTextActive]}>{g.label}</Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 7 && styles.goalButtonActive]}
+                onPress={() => setGoal(7)}
+              >
+                <Text style={[styles.goalText, goal === 7 && styles.goalTextActive]}>1 semana</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 30 && styles.goalButtonActive]}
+                onPress={() => setGoal(30)}
+              >
+                <Text style={[styles.goalText, goal === 30 && styles.goalTextActive]}>1 mes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 90 && styles.goalButtonActive]}
+                onPress={() => setGoal(90)}
+              >
+                <Text style={[styles.goalText, goal === 90 && styles.goalTextActive]}>3 meses</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 180 && styles.goalButtonActive]}
+                onPress={() => setGoal(180)}
+              >
+                <Text style={[styles.goalText, goal === 180 && styles.goalTextActive]}>6 meses</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 365 && styles.goalButtonActive]}
+                onPress={() => setGoal(365)}
+              >
+                <Text style={[styles.goalText, goal === 365 && styles.goalTextActive]}>1 año</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.goalButton, goal === 0 && styles.goalButtonActive]}
+                onPress={() => setGoal(0)}
+              >
+                <Text style={[styles.goalText, goal === 0 && styles.goalTextActive]}>Personalizado</Text>
+              </TouchableOpacity>
             </View>
+
+            {goal === 0 && (
+              <TextInput
+                style={styles.input}
+                placeholder="¿Cuántos días?"
+                value={customGoal}
+                onChangeText={setCustomGoal}
+                keyboardType="numeric"
+              />
+            )}
 
             <TouchableOpacity style={styles.nextButton} onPress={handleFinish} disabled={loading}>
               {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.nextText}>Crear hábito</Text>}

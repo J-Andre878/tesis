@@ -1,6 +1,7 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { requestNotificationPermission } from '../services/notifications';
 
 export default function RootLayout() {
   const { user, loading } = useAuth();
@@ -18,6 +19,12 @@ export default function RootLayout() {
       router.replace('/(tabs)');
     }
   }, [user, loading, router, segments]);
+
+  useEffect(() => {
+    if (user) {
+      requestNotificationPermission();
+    }
+  }, [user]);
 
   return <Slot />;
 }

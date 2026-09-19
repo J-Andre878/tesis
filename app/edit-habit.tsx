@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { CATEGORIES, GOAL_OPTIONS } from '../constants/habits';
+import { CATEGORIES } from '../constants/habits';
 import { useHabits } from '../hooks/useHabits';
 
 export default function EditHabitScreen() {
@@ -19,17 +19,21 @@ export default function EditHabitScreen() {
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit?.frequency || 'daily');
   const [weeklyDays, setWeeklyDays] = useState(habit?.weeklyDays || 3);
   const [goal, setGoal] = useState(habit?.goal || 21);
+  const [customGoal, setCustomGoal] = useState(
+    habit?.goal && ![7, 30, 90, 180, 365].includes(habit.goal) ? String(habit.goal) : ''
+  );
   const [loading, setLoading] = useState(false);
 
   const handleUpdate = async () => {
     if (!name || !selectedCategory || !id) return;
     setLoading(true);
+    const finalGoal = goal === 0 && customGoal ? parseInt(customGoal) || 0 : goal;
     await updateHabit(id, {
       name,
       category: selectedCategory.name,
       frequency,
       weeklyDays: frequency === 'weekly' ? weeklyDays : undefined,
-      goal,
+      goal: finalGoal,
       icon: selectedCategory.iconName,
       color: selectedCategory.color,
     });
@@ -77,24 +81,27 @@ export default function EditHabitScreen() {
           ))}
         </View>
 
-        <Text style={styles.question}>Frecuencia</Text>
+        <Text style={styles.question}>¿Con qué frecuencia vas a hacer este hábito?</Text>
         <View style={styles.row}>
-          {['daily', 'weekly'].map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.freqButton, frequency === f && styles.freqButtonActive]}
-              onPress={() => setFrequency(f as 'daily' | 'weekly')}
-            >
-              <Text style={[styles.freqText, frequency === f && styles.freqTextActive]}>{f === 'daily' ? 'Diario' : 'Semanal'}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            style={[styles.freqButton, frequency === 'daily' && styles.freqButtonActive]}
+            onPress={() => setFrequency('daily')}
+          >
+            <Text style={[styles.freqText, frequency === 'daily' && styles.freqTextActive]}>Todos los días</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.freqButton, frequency === 'weekly' && styles.freqButtonActive]}
+            onPress={() => setFrequency('weekly')}
+          >
+            <Text style={[styles.freqText, frequency === 'weekly' && styles.freqTextActive]}>Algunos días de la semana</Text>
+          </TouchableOpacity>
         </View>
 
         {frequency === 'weekly' && (
           <>
-            <Text style={styles.question}>Días por semana</Text>
+            <Text style={styles.question}>¿Cuántos días a la semana?</Text>
             <View style={styles.row}>
-              {[2, 3, 4, 5, 6, 7].map((d) => (
+              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <TouchableOpacity
                   key={d}
                   style={[styles.dayButton, weeklyDays === d && styles.dayButtonActive]}
@@ -107,18 +114,55 @@ export default function EditHabitScreen() {
           </>
         )}
 
-        <Text style={styles.question}>Meta</Text>
+        <Text style={styles.question}>¿Hasta cuándo te comprometes?</Text>
         <View style={styles.row}>
-          {GOAL_OPTIONS.map((g) => (
-            <TouchableOpacity
-              key={g.value}
-              style={[styles.goalButton, goal === g.value && styles.goalButtonActive]}
-              onPress={() => setGoal(g.value)}
-            >
-              <Text style={[styles.goalText, goal === g.value && styles.goalTextActive]}>{g.label}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 7 && styles.goalButtonActive]}
+            onPress={() => setGoal(7)}
+          >
+            <Text style={[styles.goalText, goal === 7 && styles.goalTextActive]}>1 semana</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 30 && styles.goalButtonActive]}
+            onPress={() => setGoal(30)}
+          >
+            <Text style={[styles.goalText, goal === 30 && styles.goalTextActive]}>1 mes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 90 && styles.goalButtonActive]}
+            onPress={() => setGoal(90)}
+          >
+            <Text style={[styles.goalText, goal === 90 && styles.goalTextActive]}>3 meses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 180 && styles.goalButtonActive]}
+            onPress={() => setGoal(180)}
+          >
+            <Text style={[styles.goalText, goal === 180 && styles.goalTextActive]}>6 meses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 365 && styles.goalButtonActive]}
+            onPress={() => setGoal(365)}
+          >
+            <Text style={[styles.goalText, goal === 365 && styles.goalTextActive]}>1 año</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.goalButton, goal === 0 && styles.goalButtonActive]}
+            onPress={() => setGoal(0)}
+          >
+            <Text style={[styles.goalText, goal === 0 && styles.goalTextActive]}>Personalizado</Text>
+          </TouchableOpacity>
         </View>
+
+        {goal === 0 && (
+          <TextInput
+            style={styles.input}
+            placeholder="¿Cuántos días?"
+            value={customGoal}
+            onChangeText={setCustomGoal}
+            keyboardType="numeric"
+          />
+        )}
 
         <TouchableOpacity style={styles.nextButton} onPress={handleUpdate} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.nextText}>Guardar cambios</Text>}
@@ -139,9 +183,6 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   categoryCard: { width: '47%', backgroundColor: '#f8f8f8', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   categoryName: { fontSize: 12, textAlign: 'center', color: '#333', fontWeight: '500' },
-  subcategoryContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-  subButton: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  subText: { fontSize: 14, color: '#333' },
   nextButton: { backgroundColor: '#6C63FF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   nextText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
