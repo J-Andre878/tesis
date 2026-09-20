@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CATEGORIES } from '../constants/habits';
 import { useHabits } from '../hooks/useHabits';
+import { useAppTheme } from '../contexts/ThemeContext';
 
 export default function EditHabitScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { habits, updateHabit } = useHabits();
+  const { theme } = useAppTheme();
 
   const habit = habits.find(h => h.id === id);
 
@@ -43,7 +45,7 @@ export default function EditHabitScreen() {
 
   if (!habit) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#6C63FF" />
       </View>
     );
@@ -59,15 +61,15 @@ export default function EditHabitScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.question}>Nombre del hábito</Text>
+        <Text style={[styles.question, { color: theme.text }]}>Nombre del hábito</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
           placeholder="Ej: Hacer ejercicio, Leer 20 minutos..."
           value={name}
           onChangeText={setName}
         />
 
-        <Text style={styles.question}>Categoría</Text>
+        <Text style={[styles.question, { color: theme.text }]}>Categoría</Text>
         <View style={styles.grid}>
           {CATEGORIES.map((cat) => (
             <TouchableOpacity
@@ -76,12 +78,12 @@ export default function EditHabitScreen() {
               onPress={() => setSelectedCategory(cat)}
             >
               <Ionicons name={cat.iconName as any} size={30} color={cat.color} />
-              <Text style={styles.categoryName}>{cat.name}</Text>
+              <Text style={[styles.categoryName, { color: theme.text }]}>{cat.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.question}>¿Con qué frecuencia vas a hacer este hábito?</Text>
+        <Text style={[styles.question, { color: theme.text }]}>¿Con qué frecuencia vas a hacer este hábito?</Text>
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.freqButton, frequency === 'daily' && styles.freqButtonActive]}
@@ -99,7 +101,7 @@ export default function EditHabitScreen() {
 
         {frequency === 'weekly' && (
           <>
-            <Text style={styles.question}>¿Cuántos días a la semana?</Text>
+            <Text style={[styles.question, { color: theme.text }]}>¿Cuántos días a la semana?</Text>
             <View style={styles.row}>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <TouchableOpacity
@@ -114,7 +116,7 @@ export default function EditHabitScreen() {
           </>
         )}
 
-        <Text style={styles.question}>¿Hasta cuándo te comprometes?</Text>
+        <Text style={[styles.question, { color: theme.text }]}>¿Hasta cuándo te comprometes?</Text>
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.goalButton, goal === 7 && styles.goalButtonActive]}
@@ -156,7 +158,7 @@ export default function EditHabitScreen() {
 
         {goal === 0 && (
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
             placeholder="¿Cuántos días?"
             value={customGoal}
             onChangeText={setCustomGoal}

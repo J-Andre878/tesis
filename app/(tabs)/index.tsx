@@ -2,11 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getHabitIconName } from '../../constants/habits';
 import { useHabits } from '../../hooks/useHabits';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../hooks/useUser';
 
 export default function HomeScreen() {
   const { userData, loading: loadingUser } = useUser();
   const { habits, loading: loadingHabits, completeHabit, isProcessing } = useHabits();
+  const { theme } = useAppTheme();
 
   const today = new Date().toISOString().split('T')[0];
   const todayHabits = habits.filter(h => h.frequency === 'daily' || true);
@@ -41,13 +43,13 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
 
       {/* Saludo */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.name}>{userData?.name?.split(' ')[0]}</Text>
+          <Text style={[styles.name, { color: theme.text }]}>{userData?.name?.split(' ')[0]}</Text>
         </View>
         <View style={styles.levelBadge}>
           <Text style={styles.levelText}>Nv. {userData?.level}</Text>
@@ -65,9 +67,9 @@ export default function HomeScreen() {
       </View>
 
       {/* Resumen del día */}
-      <View style={styles.summaryCard}>
+      <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
         <Text style={styles.summaryTitle}>Hoy</Text>
-        <Text style={styles.summaryCount}>
+        <Text style={[styles.summaryCount, { color: theme.text }]}>
           {completedToday} / {totalToday} hábitos completados
         </Text>
         <View style={styles.progressBar}>
@@ -89,10 +91,10 @@ export default function HomeScreen() {
         habits.map((habit) => {
           const completedToday = habit.completedDates?.includes(today);
           return (
-            <View key={habit.id} style={[styles.habitCard, { borderLeftColor: habit.color }]}>
+            <View key={habit.id} style={[styles.habitCard, { borderLeftColor: habit.color, backgroundColor: theme.surface }]}>
               <Ionicons name={getHabitIconName(habit) as any} size={28} color={habit.color} style={styles.habitIcon} />
               <View style={styles.habitInfo}>
-                <Text style={styles.habitName}>{habit.name}</Text>
+                <Text style={[styles.habitName, { color: theme.text }]}>{habit.name}</Text>
                 <Text style={styles.habitDays}>{habit.completedDates?.length || 0} días completados</Text>
               </View>
               <TouchableOpacity onPress={() => handleComplete(habit)} disabled={isProcessing}>

@@ -3,6 +3,7 @@ import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/aut
 import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../config/firebase';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { theme } = useAppTheme();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -57,14 +59,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={styles.title}>Habit Galaxy</Text>
-      <Text style={styles.subtitle}>Inicia sesion</Text>
+      <Text style={[styles.subtitle, { color: theme.text }]}>Inicia sesion</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
         placeholder="Correo electrónico"
         value={email}
         onChangeText={setEmail}
@@ -72,7 +74,7 @@ export default function LoginScreen() {
         autoCapitalize="none"
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
         placeholder="Contraseña"
         value={password}
         onChangeText={setPassword}

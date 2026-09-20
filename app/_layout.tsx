@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../config/firebase';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 export default function RootLayout() {
   const { user, loading } = useAuth();
@@ -38,5 +39,9 @@ export default function RootLayout() {
     initializeTutorialSession().catch(error => console.error('Error updating tutorial session:', error));
   }, [user]);
 
-  return <Slot />;
+  return (
+    <ThemeProvider>
+      <Slot />
+    </ThemeProvider>
+  );
 }

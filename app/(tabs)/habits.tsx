@@ -6,11 +6,13 @@ import { getHabitIconName } from '../../constants/habits';
 import { MAX_HABITS, useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
 import { TutorialTooltip } from '../../components/TutorialTooltip';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 export default function HabitsScreen() {
   const { habits, loading, completeHabit, deleteHabit, isProcessing } = useHabits();
   const { userData } = useUser();
   const [tutorialVisible, setTutorialVisible] = useState(true);
+  const { theme } = useAppTheme();
   const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
@@ -45,9 +47,9 @@ export default function HabitsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Mis Hábitos</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Mis Hábitos</Text>
         <TouchableOpacity
           style={[styles.addButton, habits.length >= MAX_HABITS && styles.addButtonDisabled]}
           onPress={() => {
@@ -77,10 +79,10 @@ export default function HabitsScreen() {
           renderItem={({ item }) => {
             const completedToday = item.completedDates?.includes(today);
             return (
-              <View style={[styles.habitCard, { borderLeftColor: item.color }]}>
+              <View style={[styles.habitCard, { borderLeftColor: item.color, backgroundColor: theme.surface }]}>
                 <Ionicons name={getHabitIconName(item) as any} size={28} color={item.color} style={styles.habitIcon} />
                 <View style={styles.habitInfo}>
-                  <Text style={styles.habitName}>{item.name}</Text>
+                  <Text style={[styles.habitName, { color: theme.text }]}>{item.name}</Text>
                   <Text style={styles.habitCategory}>{item.category}</Text>
                   <Text style={styles.habitDays}>{item.completedDates?.length || 0} días completados</Text>
                 </View>

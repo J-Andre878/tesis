@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CATEGORIES } from '../constants/habits';
 import { MAX_HABITS, useHabits } from '../hooks/useHabits';
+import { useAppTheme } from '../contexts/ThemeContext';
 
 export default function CreateHabitScreen() {
   const router = useRouter();
   const { habits, addHabit } = useHabits();
+  const { theme } = useAppTheme();
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -44,7 +46,7 @@ export default function CreateHabitScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => step === 1 ? router.back() : setStep(1)}>
           <Text style={styles.back}>← Atrás</Text>
@@ -59,15 +61,15 @@ export default function CreateHabitScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {step === 1 ? (
           <>
-            <Text style={styles.question}>¿Cómo se llama tu hábito?</Text>
+            <Text style={[styles.question, { color: theme.text }]}>¿Cómo se llama tu hábito?</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
               placeholder="Ej: Hacer ejercicio, Leer 20 minutos..."
               value={name}
               onChangeText={setName}
             />
 
-            <Text style={styles.question}>¿En qué categoría entra?</Text>
+            <Text style={[styles.question, { color: theme.text }]}>¿En qué categoría entra?</Text>
             <View style={styles.grid}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
@@ -76,7 +78,7 @@ export default function CreateHabitScreen() {
                   onPress={() => setSelectedCategory(cat)}
                 >
                   <Ionicons name={cat.iconName as any} size={30} color={cat.color} />
-                  <Text style={styles.categoryName}>{cat.name}</Text>
+                  <Text style={[styles.categoryName, { color: theme.text }]}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -91,7 +93,7 @@ export default function CreateHabitScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.question}>¿Con qué frecuencia vas a hacer este hábito?</Text>
+            <Text style={[styles.question, { color: theme.text }]}>¿Con qué frecuencia vas a hacer este hábito?</Text>
             <View style={styles.row}>
               <TouchableOpacity
                 style={[styles.freqButton, frequency === 'daily' && styles.freqButtonActive]}
@@ -109,7 +111,7 @@ export default function CreateHabitScreen() {
 
             {frequency === 'weekly' && (
               <>
-                <Text style={styles.question}>¿Cuántos días a la semana?</Text>
+                <Text style={[styles.question, { color: theme.text }]}>¿Cuántos días a la semana?</Text>
                 <View style={styles.row}>
                   {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                     <TouchableOpacity
@@ -124,7 +126,7 @@ export default function CreateHabitScreen() {
               </>
             )}
 
-            <Text style={styles.question}>¿Hasta cuándo te comprometes?</Text>
+            <Text style={[styles.question, { color: theme.text }]}>¿Hasta cuándo te comprometes?</Text>
             <View style={styles.row}>
               <TouchableOpacity
                 style={[styles.goalButton, goal === 7 && styles.goalButtonActive]}
@@ -166,7 +168,7 @@ export default function CreateHabitScreen() {
 
             {goal === 0 && (
               <TextInput
-                style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
                 placeholder="¿Cuántos días?"
                 value={customGoal}
                 onChangeText={setCustomGoal}

@@ -6,10 +6,12 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { auth, db } from '../../config/firebase';
 import { useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 export default function ProfileScreen() {
   const { userData, loading } = useUser();
   const { habits } = useHabits();
+  const { theme, toggleTheme } = useAppTheme();
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
 
@@ -56,7 +58,7 @@ export default function ProfileScreen() {
   if (loading) return <ActivityIndicator size="large" color="#6C63FF" style={{ flex: 1 }} />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
 
       {/* Avatar y nombre */}
       <View style={styles.avatarSection}>
@@ -65,7 +67,7 @@ export default function ProfileScreen() {
             {userData?.name?.charAt(0).toUpperCase()}
           </Text>
         </View>
-        <Text style={styles.name}>{userData?.name}</Text>
+        <Text style={[styles.name, { color: theme.text }]}>{userData?.name}</Text>
         <Text style={styles.email}>{userData?.email}</Text>
         <View style={styles.levelBadge}>
           <Text style={styles.levelText}>
@@ -76,32 +78,40 @@ export default function ProfileScreen() {
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.statNumber}>{userData?.xp}</Text>
           <Text style={styles.statLabel}>XP Total</Text>
         </View>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.statNumber}>{totalHabits}</Text>
           <Text style={styles.statLabel}>Hábitos</Text>
         </View>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.statNumber}>{totalCompleted}</Text>
           <Text style={styles.statLabel}>Completados</Text>
         </View>
       </View>
 
       {/* Info personal */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Información personal</Text>
+      <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.infoTitle, { color: theme.text }]}>Información personal</Text>
         <View style={styles.infoRow}>
           <Ionicons name="calendar-outline" size={18} color="#999" />
-          <Text style={styles.infoText}>{userData?.age ? `${userData.age} años` : 'Edad no especificada'}</Text>
+          <Text style={[styles.infoText, { color: theme.mutedText }]}>{userData?.age ? `${userData.age} años` : 'Edad no especificada'}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Ionicons name="person-outline" size={18} color="#999" />
-          <Text style={styles.infoText}>{userData?.gender || 'Género no especificado'}</Text>
+          <Text style={[styles.infoText, { color: theme.mutedText }]}>{userData?.gender || 'Género no especificado'}</Text>
         </View>
       </View>
+
+      <TouchableOpacity style={[styles.themeButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={toggleTheme}>
+        <Ionicons name={theme.dark ? 'sunny-outline' : 'moon-outline'} size={20} color={theme.primary} />
+        <Text style={[styles.themeButtonText, { color: theme.text }]}>
+          {theme.dark ? 'Usar modo claro' : 'Usar modo oscuro'}
+        </Text>
+      </TouchableOpacity>
 
 {/* Cerrar sesión */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -116,10 +126,10 @@ export default function ProfileScreen() {
 
       {showDeletePassword && (
         <View style={styles.deletePasswordOverlay}>
-          <View style={styles.deletePasswordModal}>
-            <Text style={styles.deletePasswordTitle}>Ingresá tu contraseña</Text>
+          <View style={[styles.deletePasswordModal, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.deletePasswordTitle, { color: theme.text }]}>Ingresá tu contraseña</Text>
             <TextInput
-              style={styles.deletePasswordInput}
+              style={[styles.deletePasswordInput, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
               placeholder="Contraseña"
               value={deletePassword}
               onChangeText={setDeletePassword}
@@ -166,6 +176,8 @@ const styles = StyleSheet.create({
   signOutText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   deleteAccountButton: { backgroundColor: '#D63031', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 },
   deleteAccountText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  themeButton: { borderWidth: 1, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 12 },
+  themeButtonText: { fontSize: 16, fontWeight: 'bold' },
   deletePasswordOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   deletePasswordModal: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 },
   deletePasswordTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 16, textAlign: 'center' },

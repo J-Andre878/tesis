@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useRouter } from 'expo-router';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -14,6 +15,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { theme } = useAppTheme();
 
   const handleRegister = async () => {
     if (!name || !email || !password || !age || !gender) {
@@ -66,18 +68,18 @@ export default function RegisterScreen() {
   const genderOptions = ['Masculino', 'Femenino', 'Prefiero no decir'];
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={styles.title}>Habit Galaxy</Text>
-      <Text style={styles.subtitle}>Crea tu cuenta</Text>
+      <Text style={[styles.subtitle, { color: theme.text }]}>Crea tu cuenta</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput style={styles.input} placeholder="Nombre completo" value={name} onChangeText={setName} />
-      <TextInput style={styles.input} placeholder="Correo electrónico" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-      <TextInput style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
-      <TextInput style={styles.input} placeholder="Edad" value={age} onChangeText={setAge} keyboardType="numeric" />
+      <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]} placeholder="Nombre completo" placeholderTextColor={theme.mutedText} value={name} onChangeText={setName} />
+      <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]} placeholder="Correo electrónico" placeholderTextColor={theme.mutedText} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+      <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]} placeholder="Contraseña" placeholderTextColor={theme.mutedText} value={password} onChangeText={setPassword} secureTextEntry />
+      <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]} placeholder="Edad" placeholderTextColor={theme.mutedText} value={age} onChangeText={setAge} keyboardType="numeric" />
 
-      <Text style={styles.label}>Género</Text>
+      <Text style={[styles.label, { color: theme.text }]}>Género</Text>
       <View style={styles.genderContainer}>
         {genderOptions.map((option) => (
           <TouchableOpacity

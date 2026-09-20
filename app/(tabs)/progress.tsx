@@ -5,11 +5,13 @@ import { useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
 import { TutorialTooltip } from '../../components/TutorialTooltip';
 import { useState } from 'react';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 export default function ProgressScreen() {
   const { habits, loading } = useHabits();
   const { userData } = useUser();
   const [tutorialVisible, setTutorialVisible] = useState(true);
+  const { theme } = useAppTheme();
 
   const getLast7Days = () => {
     const days = [];
@@ -53,13 +55,13 @@ export default function ProgressScreen() {
   if (loading) return <ActivityIndicator size="large" color="#6C63FF" style={{ flex: 1 }} />;
 
   return (
-    <View style={styles.screen}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Mi Progreso</Text>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
+      <Text style={[styles.title, { color: theme.text }]}>Mi Progreso</Text>
 
       {/* Gráfica semanal */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Hábitos completados esta semana</Text>
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>Hábitos completados esta semana</Text>
         <View style={styles.chart}>
           {weeklyData.map((item, index) => {
             const date = new Date(item.day + 'T12:00:00');
@@ -79,8 +81,8 @@ export default function ProgressScreen() {
       </View>
 
       {/* Consistencia por hábito */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Consistencia por hábito</Text>
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>Consistencia por hábito</Text>
         {habits.length === 0 ? (
           <Text style={styles.emptyText}>Aún no tienes hábitos</Text>
         ) : (
@@ -90,7 +92,7 @@ export default function ProgressScreen() {
               <View key={habit.id} style={styles.habitRow}>
                 <Ionicons name={getHabitIconName(habit) as any} size={22} color={habit.color} style={styles.habitIcon} />
                 <View style={styles.habitInfo}>
-                  <Text style={styles.habitName}>{habit.name}</Text>
+                  <Text style={[styles.habitName, { color: theme.text }]}>{habit.name}</Text>
                   <View style={styles.consistencyBar}>
                     <View style={[styles.consistencyFill, { width: `${consistency}%`, backgroundColor: habit.color }]} />
                   </View>
@@ -103,8 +105,8 @@ export default function ProgressScreen() {
       </View>
 
       {/* Resumen general */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Resumen general</Text>
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>Resumen general</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{userData?.xp || 0}</Text>

@@ -89,7 +89,9 @@ export function useUser() {
 
         const raw = snapshot.data() as Partial<UserData>;
         const constellations = migrateConstellations(raw);
-        const requestedActive = raw.activeConstellation && constellations.find(item => item.id === raw.activeConstellation && !item.locked);
+        const requestedActive = raw.activeConstellation
+          ? constellations.find(item => item.id === raw.activeConstellation && !item.locked)
+          : undefined;
         const activeConstellation = requestedActive?.id || constellations.find(item => !item.locked)?.id || CONSTELLATIONS[0].id;
         const migration: Record<string, unknown> = {};
         if (!Array.isArray(raw.constellations)) migration.constellations = constellations;
