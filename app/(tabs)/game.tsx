@@ -1,11 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { useUser } from '../../hooks/useUser';
-import { useHabits } from '../../hooks/useHabits';
 import { auth, db } from '../../config/firebase';
-import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { CONSTELLATIONS as CONSTELLATION_DEFINITIONS, MAX_SMALL_STARS } from '../../constants/constellations';
 import { TutorialTooltip } from '../../components/TutorialTooltip';
 
@@ -163,54 +162,13 @@ function PulsingConstellationStar({ x, y, index }: any) {
 
 export default function GameScreen() {
   const { userData } = useUser();
-  const { habits } = useHabits();
   const [fullscreen, setFullscreen] = useState(false);
-  const [view, setView] = useState<'sky' | 'leaderboard'>('sky');
-  const [leaderboard, setLeaderboard] = useState<{ id: string; userName: string; userLevel: number; score: number }[]>([]);
   const [galaxyView, setGalaxyView] = useState(false);
   const [visitedConstellation, setVisitedConstellation] = useState<number | null>(null);
   const [tutorialStep, setTutorialStep] = useState(0);
 
   const activeConstellationIndex = Math.max(0, CONSTELLATION_DEFINITIONS.findIndex(item => item.id === userData?.activeConstellation));
   const currentConstellationIndex = activeConstellationIndex;
-  const userCategory = useMemo(() => habits.find(h => h.category)?.category || '', [habits]);
-
-  const weekStart = useMemo(() => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    return d.toISOString().split('T')[0];
-  }, []);
-
-  useEffect(() => {
-    if (view !== 'leaderboard') return;
-
-    const q = query(
-      collection(db, 'weeklyScores'),
-      where('weekStart', '==', weekStart)
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const all: { id: string; userName: string; userLevel: number; score: number; category?: string }[] = [];
-      snap.forEach((docSnap) => {
-        const d = docSnap.data() as { userName?: string; userLevel?: number; score?: number; category?: string };
-        if (typeof d.userName === 'string' && typeof d.score === 'number') {
-          all.push({ id: docSnap.id, userName: d.userName, userLevel: d.userLevel || 1, score: d.score, category: d.category });
-        }
-      });
-
-      const filtered = userCategory
-        ? all.filter(item => item.category === userCategory)
-        : all;
-      filtered.sort((a, b) => b.score - a.score);
-      setLeaderboard(filtered.slice(0, 50));
-    }, (error) => {
-      console.error('Error loading leaderboard:', error);
-    });
-
-    return unsub;
-  }, [view, userCategory, weekStart]);
 
   const displayConstellationIndex = visitedConstellation ?? currentConstellationIndex;
   const displayProgress = userData?.constellations?.[displayConstellationIndex];
@@ -386,7 +344,7 @@ export default function GameScreen() {
             {CONSTELLATIONS.map((constellation, index) => renderConstellationMiniature(constellation, index))}
           </ScrollView>
         </>
-      ) : view === 'sky' ? (
+      ) : (
         <TouchableOpacity
           activeOpacity={1}
           onPress={fullscreen ? () => setFullscreen(false) : undefined}
@@ -408,20 +366,6 @@ export default function GameScreen() {
               <Text style={styles.subtitle}>
                 {starsInDisplay} / {displayDefinition.stars.length} estrellas · {displayConst.name}
               </Text>
-              <View style={styles.viewToggle}>
-                <TouchableOpacity
-                  style={[styles.viewToggleBtn, styles.viewToggleBtnActive]}
-                  onPress={() => setView('sky')}
-                >
-                  <Text style={[styles.viewToggleText, styles.viewToggleTextActive]}>Mi Cielo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.viewToggleBtn}
-                  onPress={() => setView('leaderboard')}
-                >
-                  <Text style={styles.viewToggleText}>Tabla de Líderes</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
 
@@ -487,9 +431,9 @@ export default function GameScreen() {
           )}
 
           {!fullscreen && (
-            <View style={styles.rightButtons}>
+            <>
               <TouchableOpacity
-                style={styles.iconButton}
+                style={[styles.iconButton, styles.galaxyButton]}
                 onPress={() => {
                   if (visitedConstellation !== null) {
                     handleBackToCurrent();
@@ -501,56 +445,16 @@ export default function GameScreen() {
                 <Text style={styles.iconButtonText}>✦</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.iconButton}
+                style={[styles.iconButton, styles.fullscreenButton]}
                 onPress={() => setFullscreen(true)}
               >
                 <Text style={styles.iconButtonText}>⛶</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </TouchableOpacity>
-      ) : (
-        <View style={styles.leaderboardContainer}>
-          <LinearGradient colors={displayConst.colors} style={StyleSheet.absoluteFill} />
-          <View style={styles.leaderboardHeader}>
-            <TouchableOpacity onPress={() => setView('sky')} style={styles.leaderboardBackBtn}>
-              <Text style={styles.leaderboardBackText}>← Volver</Text>
-            </TouchableOpacity>
-            <Text style={styles.leaderboardTitle}>Ranking Semanal</Text>
-            <View style={{ width: 60 }} />
-          </View>
-          {!userCategory ? (
-            <Text style={styles.leaderboardEmpty}>Agrega una subcategoria a algun habito para participar en el ranking</Text>
-          ) : (
-            <FlatList
-              data={leaderboard}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.leaderboardList}
-              renderItem={({ item, index }) => {
-                const isCurrentUser = auth.currentUser?.uid === item.id;
-                const rankTitle = item.score >= 0.9 ? 'Perfecto' : item.score >= 0.6 ? 'Constante' : item.score >= 0.3 ? 'En marcha' : 'Recomenzando';
-                return (
-                  <View style={[styles.leaderboardItem, isCurrentUser && styles.leaderboardItemActive]}>
-                    <Text style={[styles.leaderboardRank, isCurrentUser && styles.leaderboardRankActive]}>{index + 1}</Text>
-                    <View style={styles.leaderboardUserInfo}>
-                      <Text style={[styles.leaderboardName, isCurrentUser && styles.leaderboardNameActive]}>{item.userName}</Text>
-                      <Text style={styles.leaderboardLevel}>Nivel {item.userLevel}</Text>
-                    </View>
-                    <View style={styles.leaderboardScoreInfo}>
-                      <Text style={[styles.leaderboardScore, isCurrentUser && styles.leaderboardScoreActive]}>{item.score.toFixed(2)}</Text>
-                      <Text style={[styles.leaderboardTitleText, isCurrentUser && styles.leaderboardTitleTextActive]}>{rankTitle}</Text>
-                    </View>
-                  </View>
-                );
-              }}
-              ListEmptyComponent={
-                <Text style={styles.leaderboardEmpty}>No hay datos disponibles</Text>
-              }
-            />
-          )}
-        </View>
       )}
-      {userData?.tutorialActive && tutorialStep < 3 && !galaxyView && view === 'sky' && (
+      {userData?.tutorialActive && tutorialStep < 3 && !galaxyView && (
         <TutorialTooltip
           position={tutorialStep === 2 ? 'center' : 'top'}
           text={
@@ -585,34 +489,10 @@ const styles = StyleSheet.create({
   continueButton: { backgroundColor: '#6C63FF', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, marginTop: 12, alignItems: 'center' },
   continueButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   completeText: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  rightButtons: { position: 'absolute', top: 55, right: 20, flexDirection: 'row', gap: 12 },
-  iconButton: { padding: 8 },
+  iconButton: { position: 'absolute', top: 55, padding: 8 },
+  galaxyButton: { left: 20 },
+  fullscreenButton: { right: 20 },
   iconButtonText: { fontSize: 22, color: 'rgba(255,255,255,0.5)' },
-  viewToggle: { flexDirection: 'row', marginTop: 18, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 4 },
-  viewToggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  viewToggleBtnActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
-  viewToggleText: { color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: '600' },
-  viewToggleTextActive: { color: '#fff' },
-  leaderboardContainer: { flex: 1 },
-  leaderboardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, marginBottom: 12 },
-  leaderboardBackBtn: { padding: 8 },
-  leaderboardBackText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  leaderboardTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
-  leaderboardList: { paddingHorizontal: 24, paddingBottom: 20 },
-  leaderboardItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 8 },
-  leaderboardItemActive: { backgroundColor: 'rgba(108,99,255,0.25)' },
-  leaderboardRank: { width: 32, fontSize: 16, fontWeight: 'bold', color: 'rgba(255,255,255,0.7)' },
-  leaderboardRankActive: { color: '#fff' },
-  leaderboardUserInfo: { flex: 1, marginLeft: 12 },
-  leaderboardName: { fontSize: 15, color: 'rgba(255,255,255,0.85)', marginLeft: 0 },
-  leaderboardNameActive: { color: '#fff', fontWeight: 'bold' },
-  leaderboardLevel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  leaderboardScoreInfo: { alignItems: 'flex-end' },
-  leaderboardScore: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginLeft: 8 },
-  leaderboardScoreActive: { color: '#fff', fontWeight: 'bold' },
-  leaderboardTitleText: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  leaderboardTitleTextActive: { color: '#fff' },
-  leaderboardEmpty: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', marginTop: 40, fontSize: 14 },
   galaxyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60 },
   galaxyTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', letterSpacing: 3 },
   galaxyClose: { fontSize: 16, color: 'rgba(255,255,255,0.7)' },

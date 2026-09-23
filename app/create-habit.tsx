@@ -65,6 +65,7 @@ export default function CreateHabitScreen() {
             <TextInput
               style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
               placeholder="Ej: Hacer ejercicio, Leer 20 minutos..."
+              placeholderTextColor={theme.mutedText}
               value={name}
               onChangeText={setName}
             />
@@ -74,7 +75,11 @@ export default function CreateHabitScreen() {
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[styles.categoryCard, selectedCategory?.id === cat.id && { borderColor: cat.color, borderWidth: 2 }]}
+                  style={[
+                    styles.categoryCard,
+                    { backgroundColor: theme.surface, borderColor: theme.border },
+                    selectedCategory?.id === cat.id && { borderColor: cat.color, borderWidth: 2 },
+                  ]}
                   onPress={() => setSelectedCategory(cat)}
                 >
                   <Ionicons name={cat.iconName as any} size={30} color={cat.color} />
@@ -96,16 +101,16 @@ export default function CreateHabitScreen() {
             <Text style={[styles.question, { color: theme.text }]}>¿Con qué frecuencia vas a hacer este hábito?</Text>
             <View style={styles.row}>
               <TouchableOpacity
-                style={[styles.freqButton, frequency === 'daily' && styles.freqButtonActive]}
+                style={[styles.freqButton, { borderColor: theme.border, backgroundColor: theme.surface }, frequency === 'daily' && styles.freqButtonActive]}
                 onPress={() => setFrequency('daily')}
               >
-                <Text style={[styles.freqText, frequency === 'daily' && styles.freqTextActive]}>Todos los días</Text>
+                <Text style={[styles.freqText, { color: theme.text }, frequency === 'daily' && styles.freqTextActive]}>Todos los días</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.freqButton, frequency === 'weekly' && styles.freqButtonActive]}
+                style={[styles.freqButton, { borderColor: theme.border, backgroundColor: theme.surface }, frequency === 'weekly' && styles.freqButtonActive]}
                 onPress={() => setFrequency('weekly')}
               >
-                <Text style={[styles.freqText, frequency === 'weekly' && styles.freqTextActive]}>Algunos días de la semana</Text>
+                <Text style={[styles.freqText, { color: theme.text }, frequency === 'weekly' && styles.freqTextActive]}>Algunos días de la semana</Text>
               </TouchableOpacity>
             </View>
 
@@ -116,10 +121,10 @@ export default function CreateHabitScreen() {
                   {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                     <TouchableOpacity
                       key={d}
-                      style={[styles.dayButton, weeklyDays === d && styles.dayButtonActive]}
+                      style={[styles.dayButton, { borderColor: theme.border, backgroundColor: theme.surface }, weeklyDays === d && styles.dayButtonActive]}
                       onPress={() => setWeeklyDays(d)}
                     >
-                      <Text style={[styles.dayText, weeklyDays === d && styles.dayTextActive]}>{d}</Text>
+                      <Text style={[styles.dayText, { color: theme.text }, weeklyDays === d && styles.dayTextActive]}>{d}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -129,40 +134,40 @@ export default function CreateHabitScreen() {
             <Text style={[styles.question, { color: theme.text }]}>¿Hasta cuándo te comprometes?</Text>
             <View style={styles.row}>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 7 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 7 && styles.goalButtonActive]}
                 onPress={() => setGoal(7)}
               >
-                <Text style={[styles.goalText, goal === 7 && styles.goalTextActive]}>1 semana</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 7 && styles.goalTextActive]}>1 semana</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 30 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 30 && styles.goalButtonActive]}
                 onPress={() => setGoal(30)}
               >
-                <Text style={[styles.goalText, goal === 30 && styles.goalTextActive]}>1 mes</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 30 && styles.goalTextActive]}>1 mes</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 90 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 90 && styles.goalButtonActive]}
                 onPress={() => setGoal(90)}
               >
-                <Text style={[styles.goalText, goal === 90 && styles.goalTextActive]}>3 meses</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 90 && styles.goalTextActive]}>3 meses</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 180 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 180 && styles.goalButtonActive]}
                 onPress={() => setGoal(180)}
               >
-                <Text style={[styles.goalText, goal === 180 && styles.goalTextActive]}>6 meses</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 180 && styles.goalTextActive]}>6 meses</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 365 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 365 && styles.goalButtonActive]}
                 onPress={() => setGoal(365)}
               >
-                <Text style={[styles.goalText, goal === 365 && styles.goalTextActive]}>1 año</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 365 && styles.goalTextActive]}>1 año</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.goalButton, goal === 0 && styles.goalButtonActive]}
+                style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 0 && styles.goalButtonActive]}
                 onPress={() => setGoal(0)}
               >
-                <Text style={[styles.goalText, goal === 0 && styles.goalTextActive]}>Personalizado</Text>
+                <Text style={[styles.goalText, { color: theme.text }, goal === 0 && styles.goalTextActive]}>Personalizado</Text>
               </TouchableOpacity>
             </View>
 
@@ -170,6 +175,7 @@ export default function CreateHabitScreen() {
               <TextInput
                   style={[styles.input, { backgroundColor: theme.input, borderColor: theme.border, color: theme.text }]}
                 placeholder="¿Cuántos días?"
+                placeholderTextColor={theme.mutedText}
                 value={customGoal}
                 onChangeText={setCustomGoal}
                 keyboardType="numeric"
@@ -197,8 +203,8 @@ const styles = StyleSheet.create({
   question: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 16, marginTop: 8 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  categoryCard: { width: '47%', backgroundColor: '#f8f8f8', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  categoryName: { fontSize: 12, textAlign: 'center', color: '#333', fontWeight: '500' },
+  categoryCard: { width: '47%', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, minHeight: 82, justifyContent: 'center' },
+  categoryName: { fontSize: 12, textAlign: 'center', fontWeight: '500', marginTop: 6 },
   nextButton: { backgroundColor: '#6C63FF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   nextText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   disabled: { backgroundColor: '#ccc' },

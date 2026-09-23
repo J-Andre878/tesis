@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "habitgalaxy",
+    "name": "Habit Galaxy",
     "slug": "habitgalaxy",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,9 +12,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
+        "backgroundColor": "#08052B",
+        "foregroundImage": "./assets/images/icon.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -61,6 +60,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7687d944-b30c-4c46-8718-7b0c85479f15"
+      }
     }
   }
 }
