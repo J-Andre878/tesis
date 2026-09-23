@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { deleteDoc, doc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../config/firebase';
@@ -15,7 +15,6 @@ export default function ProfileScreen() {
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
   const totalCompleted = habits.reduce((acc, h) => acc + (h.completedDates?.length || 0), 0);
   const totalHabits = habits.length;
 
@@ -45,6 +44,12 @@ export default function ProfileScreen() {
       if (!user) return;
       const credential = EmailAuthProvider.credential(user.email!, deletePassword);
       await reauthenticateWithCredential(user, credential);
+      const habitsSnapshot = await getDocs(query(collection(db, 'habits'), where('userId', '==', user.uid)));
+      if (!habitsSnapshot.empty) {
+        const batch = writeBatch(db);
+        habitsSnapshot.docs.forEach(habitDoc => batch.delete(habitDoc.ref));
+        await batch.commit();
+      }
       await deleteDoc(doc(db, 'users', user.uid));
       await deleteUser(user);
       setShowDeletePassword(false);

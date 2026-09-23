@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getLocalDateKey } from '../utils/dates';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -61,7 +62,7 @@ export async function cancelHabitReminder(notificationId: string) {
 
 export async function checkAndSendReminders(habits: any[]) {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = getLocalDateKey(now);
 
   for (const habit of habits) {
     const completedDates = habit.completedDates || [];

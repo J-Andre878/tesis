@@ -6,6 +6,7 @@ import { useUser } from '../../hooks/useUser';
 import { TutorialTooltip } from '../../components/TutorialTooltip';
 import { useState } from 'react';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { getLocalDateKey } from '../../utils/dates';
 
 export default function ProgressScreen() {
   const { habits, loading } = useHabits();
@@ -18,7 +19,7 @@ export default function ProgressScreen() {
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      days.push(date.toISOString().split('T')[0]);
+      days.push(getLocalDateKey(date));
     }
     return days;
   };

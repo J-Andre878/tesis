@@ -7,6 +7,7 @@ import { MAX_HABITS, useHabits } from '../../hooks/useHabits';
 import { useUser } from '../../hooks/useUser';
 import { TutorialTooltip } from '../../components/TutorialTooltip';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { getLocalDateKey } from '../../utils/dates';
 
 export default function HabitsScreen() {
   const { habits, loading, completeHabit, deleteHabit, isProcessing } = useHabits();
@@ -15,7 +16,7 @@ export default function HabitsScreen() {
   const { theme } = useAppTheme();
   const router = useRouter();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
 
   const handleComplete = async (habit: any) => {
     const result = await completeHabit(habit.id, habit.streak, habit.completedDates);

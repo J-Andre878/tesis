@@ -4,13 +4,14 @@ import { getHabitIconName } from '../../constants/habits';
 import { useHabits } from '../../hooks/useHabits';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../hooks/useUser';
+import { getLocalDateKey } from '../../utils/dates';
 
 export default function HomeScreen() {
   const { userData, loading: loadingUser } = useUser();
   const { habits, loading: loadingHabits, completeHabit, isProcessing } = useHabits();
   const { theme } = useAppTheme();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   const todayHabits = habits.filter(h => h.frequency === 'daily' || true);
   const completedToday = todayHabits.filter(h => h.completedDates?.includes(today)).length;
   const totalToday = todayHabits.length;

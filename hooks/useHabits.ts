@@ -3,6 +3,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, onSnaps
 import { useEffect, useRef, useState } from 'react';
 import { CONSTELLATIONS, MAX_SMALL_STARS } from '../constants/constellations';
 import { auth, db } from '../config/firebase';
+import { countDatesInWeek, getLocalDateKey, getWeekMondayIso } from '../utils/dates';
 
 export interface Habit {
   id?: string;
@@ -21,14 +22,6 @@ export interface Habit {
 }
 
 export const MAX_HABITS = 8;
-
-function getWeekMondayIso(date: Date) {
-  const monday = new Date(date);
-  const day = monday.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  monday.setDate(monday.getDate() + diff);
-  return monday.toISOString().split('T')[0];
-}
 
 export function useHabits() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -112,7 +105,7 @@ export function useHabits() {
     processingRef.current = true;
     setIsProcessing(true);
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateKey(now);
 
     try {
       if (currentCompletedDates.includes(today)) {
@@ -125,35 +118,47 @@ export function useHabits() {
       const habitRef = doc(db, 'habits', habitId);
       const newCompletedDates = [...currentCompletedDates, today];
 
+      let gotConstellationStar = false;
       let consecutiveDays = habit.consecutiveDays || 0;
-      let streakBroken = false;
+      let newStreak = currentStreak + 1;
 
-      if (consecutiveDays > 0) {
+      if (habit.frequency === 'daily') {
         const lastCompleted = currentCompletedDates[currentCompletedDates.length - 1];
-        const lastDate = new Date(lastCompleted);
-        const diffTime = now.getTime() - lastDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const lastDate = lastCompleted ? new Date(`${lastCompleted}T00:00:00`) : null;
+        const diffDays = lastDate
+          ? Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+          : 1;
+        const streakBroken = diffDays > 1;
 
-        if (habit.frequency === 'daily') {
-          if (diffDays > 1) streakBroken = true;
-        } else {
-          if (diffDays > 7) streakBroken = true;
+        consecutiveDays = streakBroken ? 1 : consecutiveDays + 1;
+        newStreak = streakBroken ? 1 : currentStreak + 1;
+        if (consecutiveDays >= 7) {
+          gotConstellationStar = true;
+          consecutiveDays = 0;
+        }
+      } else {
+        const weeklyTarget = Math.max(1, habit.weeklyDays || 3);
+        const currentWeek = getWeekMondayIso(now);
+        const previousWeekDate = new Date(`${currentWeek}T00:00:00`);
+        previousWeekDate.setDate(previousWeekDate.getDate() - 7);
+        const previousWeek = getWeekMondayIso(previousWeekDate);
+        const currentWeekCount = countDatesInWeek(newCompletedDates, currentWeek);
+        const previousWeekCount = countDatesInWeek(currentCompletedDates, previousWeek);
+        const currentWeekCompleted = currentWeekCount >= weeklyTarget;
+        const previousWeekCompleted = previousWeekCount >= weeklyTarget;
+
+        if (currentWeekCount === weeklyTarget) {
+          newStreak = previousWeekCompleted ? currentStreak + 1 : 1;
+          consecutiveDays = previousWeekCompleted ? consecutiveDays + 1 : 1;
+          if (consecutiveDays >= 7) {
+            gotConstellationStar = true;
+            consecutiveDays = 0;
+          }
+        } else if (!currentWeekCompleted && !previousWeekCompleted) {
+          newStreak = currentStreak;
+          consecutiveDays = 0;
         }
       }
-
-      if (streakBroken) {
-        consecutiveDays = 0;
-      }
-
-      consecutiveDays += 1;
-
-      let gotConstellationStar = false;
-      if (consecutiveDays >= 7) {
-        gotConstellationStar = true;
-        consecutiveDays = 0;
-      }
-
-      const newStreak = streakBroken ? 1 : currentStreak + 1;
 
       await updateDoc(habitRef, {
         completedDates: newCompletedDates,
@@ -166,6 +171,7 @@ export function useHabits() {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data() as {
+          xp?: number;
           constellations?: Array<{ id: string; constellationStars?: number; smallStars?: number; completed?: boolean; locked?: boolean }>;
           activeConstellation?: string;
           smallStars?: number[];
@@ -194,8 +200,11 @@ export function useHabits() {
             progress[activeIndex + 1].locked = false;
           }
         }
+        const currentXp = typeof userData.xp === 'number' ? userData.xp : 0;
+        const newXp = currentXp + 10;
         await updateDoc(userRef, {
           xp: increment(10),
+          level: Math.floor(newXp / 100) + 1,
           constellations: progress,
           activeConstellation: active.id,
           lastCompletedDate: today,
