@@ -3,34 +3,55 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CATEGORIES } from '../constants/habits';
-import { useHabits } from '../hooks/useHabits';
+import { Habit, useHabits } from '../hooks/useHabits';
 import { useAppTheme } from '../contexts/ThemeContext';
 
 export default function EditHabitScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habits, updateHabit } = useHabits();
+  const { habits } = useHabits();
   const { theme } = useAppTheme();
 
   const habit = habits.find(h => h.id === id);
 
-  const [name, setName] = useState(habit?.name || '');
+  if (!habit) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  return <EditHabitForm key={habit.id} habit={habit} router={router} theme={theme} />;
+}
+
+function EditHabitForm({
+  habit,
+  router,
+  theme,
+}: {
+  habit: Habit;
+  router: ReturnType<typeof useRouter>;
+  theme: ReturnType<typeof useAppTheme>['theme'];
+}) {
+  const { updateHabit } = useHabits();
+  const [name, setName] = useState(habit.name);
   const [selectedCategory, setSelectedCategory] = useState<any>(
-    habit ? CATEGORIES.find(c => c.name === habit.category) || null : null
+    CATEGORIES.find(category => category.name === habit.category) || null
   );
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit?.frequency || 'daily');
-  const [weeklyDays, setWeeklyDays] = useState(habit?.weeklyDays || 3);
-  const [goal, setGoal] = useState(habit?.goal || 21);
+  const [frequency, setFrequency] = useState<'daily' | 'weekly'>(habit.frequency);
+  const [weeklyDays, setWeeklyDays] = useState(habit.weeklyDays || 3);
+  const [goal, setGoal] = useState(habit.goal);
   const [customGoal, setCustomGoal] = useState(
-    habit?.goal && ![7, 30, 90, 180, 365].includes(habit.goal) ? String(habit.goal) : ''
+    ![7, 30, 90, 180, 365].includes(habit.goal) ? String(habit.goal) : ''
   );
   const [loading, setLoading] = useState(false);
 
   const handleUpdate = async () => {
-    if (!name || !selectedCategory || !id) return;
+    if (!name || !selectedCategory || !habit.id) return;
     setLoading(true);
     const finalGoal = goal === 0 && customGoal ? parseInt(customGoal) || 0 : goal;
-    await updateHabit(id, {
+    await updateHabit(habit.id, {
       name,
       category: selectedCategory.name,
       frequency,
@@ -43,21 +64,13 @@ export default function EditHabitScreen() {
     router.back();
   };
 
-  if (!habit) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color="#6C63FF" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Atrás</Text>
+          <Text style={[styles.back, { color: theme.primary }]}>← Atrás</Text>
         </TouchableOpacity>
-        <Text style={styles.stepText}>Editar hábito</Text>
+        <Text style={[styles.stepText, { color: theme.text }]}>Editar hábito</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -91,13 +104,21 @@ export default function EditHabitScreen() {
         <Text style={[styles.question, { color: theme.text }]}>¿Con qué frecuencia vas a hacer este hábito?</Text>
         <View style={styles.row}>
           <TouchableOpacity
-            style={[styles.freqButton, { borderColor: theme.border, backgroundColor: theme.surface }, frequency === 'daily' && styles.freqButtonActive]}
+            style={[
+              styles.freqButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              frequency === 'daily' && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setFrequency('daily')}
           >
             <Text style={[styles.freqText, { color: theme.text }, frequency === 'daily' && styles.freqTextActive]}>Todos los días</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.freqButton, { borderColor: theme.border, backgroundColor: theme.surface }, frequency === 'weekly' && styles.freqButtonActive]}
+            style={[
+              styles.freqButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              frequency === 'weekly' && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setFrequency('weekly')}
           >
             <Text style={[styles.freqText, { color: theme.text }, frequency === 'weekly' && styles.freqTextActive]}>Algunos días de la semana</Text>
@@ -111,7 +132,11 @@ export default function EditHabitScreen() {
               {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <TouchableOpacity
                   key={d}
-                  style={[styles.dayButton, { borderColor: theme.border, backgroundColor: theme.surface }, weeklyDays === d && styles.dayButtonActive]}
+                  style={[
+                    styles.dayButton,
+                    { borderColor: theme.border, backgroundColor: theme.surface },
+                    weeklyDays === d && { backgroundColor: theme.primary, borderColor: theme.primary },
+                  ]}
                   onPress={() => setWeeklyDays(d)}
                 >
                   <Text style={[styles.dayText, { color: theme.text }, weeklyDays === d && styles.dayTextActive]}>{d}</Text>
@@ -124,37 +149,61 @@ export default function EditHabitScreen() {
         <Text style={[styles.question, { color: theme.text }]}>¿Hasta cuándo te comprometes?</Text>
         <View style={styles.row}>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 7 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 7 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(7)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 7 && styles.goalTextActive]}>1 semana</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 30 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 30 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(30)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 30 && styles.goalTextActive]}>1 mes</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 90 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 90 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(90)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 90 && styles.goalTextActive]}>3 meses</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 180 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 180 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(180)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 180 && styles.goalTextActive]}>6 meses</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 365 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 365 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(365)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 365 && styles.goalTextActive]}>1 año</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.goalButton, { borderColor: theme.border, backgroundColor: theme.surface }, goal === 0 && styles.goalButtonActive]}
+            style={[
+              styles.goalButton,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              goal === 0 && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
             onPress={() => setGoal(0)}
           >
             <Text style={[styles.goalText, { color: theme.text }, goal === 0 && styles.goalTextActive]}>Personalizado</Text>
@@ -172,7 +221,11 @@ export default function EditHabitScreen() {
           />
         )}
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleUpdate} disabled={loading}>
+        <TouchableOpacity
+          style={[styles.nextButton, { backgroundColor: theme.primary }]}
+          onPress={handleUpdate}
+          disabled={loading}
+        >
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.nextText}>Guardar cambios</Text>}
         </TouchableOpacity>
       </ScrollView>
@@ -181,29 +234,26 @@ export default function EditHabitScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60 },
-  back: { fontSize: 16, color: '#6C63FF' },
-  stepText: { fontSize: 16, fontWeight: '600', color: '#333' },
+  back: { fontSize: 16 },
+  stepText: { fontSize: 16, fontWeight: '600' },
   content: { padding: 24, paddingBottom: 60 },
-  question: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 12, marginTop: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 24 },
+  question: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
+  input: { borderWidth: 1, borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   categoryCard: { width: '47%', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, minHeight: 82, justifyContent: 'center' },
   categoryName: { fontSize: 12, textAlign: 'center', fontWeight: '500', marginTop: 6 },
-  nextButton: { backgroundColor: '#6C63FF', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  nextButton: { borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   nextText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  freqButton: { flex: 1, minHeight: 64, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, alignItems: 'center', justifyContent: 'center' },
-  freqButtonActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  freqText: { fontSize: 15, color: '#333', textAlign: 'center' },
+  freqButton: { flex: 1, minHeight: 64, borderWidth: 1, borderRadius: 10, padding: 14, alignItems: 'center', justifyContent: 'center' },
+  freqText: { fontSize: 15, textAlign: 'center' },
   freqTextActive: { color: '#fff', fontWeight: 'bold' },
-  dayButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#ddd', alignItems: 'center', justifyContent: 'center' },
-  dayButtonActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  dayText: { fontSize: 15, color: '#333' },
+  dayButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dayText: { fontSize: 15 },
   dayTextActive: { color: '#fff', fontWeight: 'bold' },
-  goalButton: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  goalButtonActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  goalText: { fontSize: 14, color: '#333' },
+  goalButton: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  goalText: { fontSize: 14 },
   goalTextActive: { color: '#fff', fontWeight: 'bold' },
 });
